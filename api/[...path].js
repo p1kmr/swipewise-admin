@@ -1,9 +1,20 @@
 import { sendError } from "./_lib/http.js";
 import { dispatchRoute } from "./_lib/router.js";
 
-export default async function handler(req, res) {
+function pathSegments(req) {
   const raw = req.query.path;
-  const segments = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  if (Array.isArray(raw) && raw.length) return raw;
+  if (typeof raw === "string" && raw) return raw.split("/").filter(Boolean);
+
+  // Fallback when query.path is missing (some Vercel runtimes).
+  const url = req.url || "";
+  const match = url.match(/^\/api\/(.+?)(?:\?|$)/);
+  if (match) return match[1].split("/").filter(Boolean);
+  return [];
+}
+
+export default async function handler(req, res) {
+  const segments = pathSegments(req);
   if (!segments.length) {
     return sendError(res, 404, "Not found.");
   }
