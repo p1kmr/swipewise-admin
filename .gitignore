@@ -7,6 +7,7 @@ atlas-credentials.env
 scripts/curl-*-response.json
 scripts/curl-publish.json
 scripts/curl-publish-*.json
+scripts/curl-bad-login.json
 scripts/screenshots/
 *.log
 .DS_Store
