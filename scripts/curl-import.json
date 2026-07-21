@@ -1,0 +1,1 @@
+{"cards":[{"jurisdiction":"IN","language_code":"en","visual_type":"plain_text","scenario_text":"Curl test card","verdict":"verify_first","explanation":"Test via curl","red_flags":["test flag"],"action_step":"Verify","verification_link":"","ai_under_hood":{"why_shown":"test","what_it_tests":"test"},"difficulty":2,"bucket":"curl-test","skill_tested":"Critical Thinking"}]}

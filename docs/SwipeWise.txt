@@ -1,0 +1,217 @@
+SwipeWise
+Developer Scope of Work
+Use AI Responsibly to Strengthen Investor Education
+Applicant: KAARYA FACILITIES SERVICES LTD.  |  Project: SwipeWise  |  July 2026
+
+Project:  SwipeWise — AI Investor Literacy App
+Engagement:  Full-Stack Developer (Contract)
+Duration:  July 2026 – September 2026
+Tech Stack:  React Native · Python FastAPI · MongoDB Atlas · Google Antigravity IDE
+Document version:  v1.0 — July 2026
+
+ SECTION 1 — PROJECT OVERVIEW
+
+1.1  What is SwipeWise?
+SwipeWise is a game-based investor education app. It addresses the Problem statement - Use AI Responsibly to Strengthen Investor Education. The app teaches retail investors to critically evaluate AI-generated financial content, understand the benefits and risks of AI in investing, and build foundational capital market knowledge through adaptive, interactive learning.
+
+1.2  The Core Mechanic
+SwipeWise has the following interaction modes that must be preserved throughout all development:
+• Swipe Cards (Format 1): A card is shown with a scenario on the front — typically a realistic AI-generated financial message. The user swipes right (Trust / Understood) or left (Don't Trust / Not Sure). The card flips to reveal the explanation, red flags, and verification step.
+• WiseBot Scripted Dialogue (Format 4): A pre-written conversation between WiseBot (the AI mascot) and the user. The user taps choices at each step. The conversation navigates a pre-written script stored in MongoDB.
+All other features — leaderboard, report a scam, social sharing, personalisation engine, regulator dashboard — are built around these two core mechanics.
+
+1.3  The Plug-and-Play Architecture Principle
+This is the most important architectural requirement. SwipeWise must be deployable to any new jurisdiction/country without any code changes. A new jurisdiction is onboarded by:
+• Completing a jurisdiction/country configuration document (stored in MongoDB config collection)
+• Uploading jurisdiction-specific data — scam cases, enforcement orders, regulatory rules — to the jurisdiction_data collection
+• Uploading registered intermediary/entities data to the jurisdiction_registry collection
+• Providing translated content via the Google Sheet content template
+1.4  Target Jurisdictions
+In the prototype phase, there will be 3 jurisdictions/countries for which swipewise will be implemented (India, Spain and French)
+ SECTION 2 — TECHNOLOGY STACK
+
+2.1  Required Technologies
+Layer	Purpose	Notes
+Frontend	Mobile app — iOS and Android	One codebase for both platforms
+Frontend	Web app — browser version	PWA — no download required
+Backend	API server — all business logic	REST API consumed by frontend
+Database	Single database for all data	Free
+Search	WiseBot KB + Scam Stats search	Built into Atlas — no separate instance
+AI / LLM	WiseBot fallback + content generation	Scripted responses preferred — LLM as fallback only
+Dev Platform	Primary development environment	Use Claude as agent model
+Hosting	Frontend deployment	Already configured and hosted at vercel
+Storage	Raw documents and evidence uploads	Part of Atlas — no extra setup
+i18n	Internationalisation framework	All user-facing text via language files — no hardcoded strings
+Charts	Skill radar chart, Awareness Index ring	React library — already in ecosystem
+Image gen	Scorecard PNG generation	Captures React Native View as image
+Sharing	WhatsApp and general sharing	Native share sheet integration
+Scheduling	Background jobs — leaderboard, dashboard	Python library — runs with FastAPI
+ SECTION 3 — DATABASE ARCHITECTURE
+
+3.1  Database Overview
+SwipeWise uses a single MongoDB Atlas database (swipewise_db) with 15 collections. This single-database architecture is chosen for simplicity and prototype scale. The developer must implement all 15 collections exactly as specified in the schema document (swipewise_schema.json).
+
+#	Collection	Purpose	Key Feature
+1	users	User profiles and progress	Anonymous — no PII stored
+2	sessions	Active session queues	TTL — auto-deleted after 30 days
+3	events	Every user interaction	Core analytics source — TTL 90 days
+4	content	All swipe cards	Atlas Search enabled
+5	scripts	WiseBot conversation trees	Node-based dialogue structure
+6	leaderboards	Pre-calculated rankings	Updated hourly — never queried live
+7	scam_reports	User-submitted scam reports	Atlas Search + AI analysis
+8	urgent_alerts	High-priority scam reports	TTL 90 days — regulator dashboard
+9	config	Jurisdiction configuration	Plug-and-Play layer
+10	scorecards	Generated scorecard images + metadata	TTL 1 year
+11	dashboard	Pre-calculated regulator metrics	Updated hourly
+12	generation_logs	AI content generation audit trail	Full content lineage
+13	raw_data	Source documents and datasets	Permanent — never deleted
+14	jurisdiction_data	Jurisdiction-specific knowledge	7 data types — feeds content pipeline
+15	jurisdiction_registry	Registered intermediary data	Atlas Search — fuzzy name matching
+
+3.2  Critical Database Rules
+• Never store PII — no names, emails, phone numbers, Aadhaar numbers, or any personally identifiable information anywhere in the database. Standards followed should be equivalent to that of EU standards.
+• All user identifiers must be anonymous UUIDs — generated on first app open, stored locally on device, used for all MongoDB queries
+• All jurisdiction-specific text, URLs, and labels must be read from the config collection — never hardcoded in application code
+• The content and scripts collections must only serve documents where approval.published = true to app users
+• Leaderboard and dashboard collections must be pre-calculated — the app never runs live aggregation queries on events or users collections
+
+
+ SECTION 4 — FEATURE SPECIFICATIONS
+
+4.1  Learn Mode — Swipe Cards
+What to build
+A card player component that reads card documents from the content collection and renders them as interactive swipe cards. This is the core gameplay mechanic.
+User experience
+• Card front displays scenario text with appropriate visual styling — WhatsApp bubble, email format, social media post, plain text, or advertisement
+• User swipes right (Trust / Understood) or left (Don't Trust / Not Sure). Tap buttons provided as accessibility alternative
+• flip animation reveals card back — verdict badge (colour-coded: red for dont_trust, green for trust, orange for verify_first), explanation text, red flags as bulleted list, action step, and tappable verification link button
+• AI Under the Hood button — small button labelled 'Why am I seeing this?' opens modal showing ai_under_hood.why_shown and ai_under_hood.what_it_tests fields from the card document
+• Confidence Check — between user answer and reveal, one screen asks 'How confident are you?' with four options. Result stored alongside swipe result
+Technical requirements
+• Read card queue from sessions collection — pre-fetched at session start, stored on device for zero-latency swiping
+• After every swipe write to events collection: card_id, decision, correct, time_taken_seconds, hint_used, confidence_check fields, ai_under_hood_viewed, verification_link_tapped
+• Update users.progress.seen_content after each card to prevent repetition
+• Support all five visual types: whatsapp_bubble, email, social_post, advertisement, plain_text — each styled distinctively
+• All text read from i18n language files — zero hardcoded strings
+• WCAG 2.1 AA compliant — all elements keyboard navigable and screen-reader labelled
+
+4.2  Learn Mode — WiseBot Scripted Dialogue
+What to build
+A chat player component that navigates pre-written conversation trees stored in the scripts collection. No live AI generation during sessions.
+User experience
+• Chat interface with WiseBot messages on left (with avatar) and user choices as tappable buttons at bottom
+• 1-second typing indicator animation before each WiseBot message appears
+• Conversation navigates via node_id routing — each user choice specifies next_node which is looked up in the nodes array
+• Session ends when is_end = true node is reached — displays key_learning text in highlighted box and session complete screen
+• WiseBot avatar state changes based on node's wisebot_avatar_state field — neutral, happy, concerned, encouraging
+Technical requirements
+• Load full script document from scripts collection at session start — store in memory, no mid-conversation database calls
+• Record full path_taken array (sequence of node_ids visited) to events collection on completion
+• Handle edge cases: user closing app mid-conversation resumes from last node; single-choice nodes auto-advance after 2 seconds
+• WiseBot avatar is jurisdiction-configurable — read from config.branding.wisebot_avatar_default
+
+4.3  Session Engine and wiseBot
+What to build
+A FastAPI endpoint that builds the content queue for each session based on the user's profile, performance gaps, and the 70/20/10 personalisation model. Also develop an AI powered chatbot (wisebot) that will guide user if they want any hints while playing the game. The Chatbot will be implemented with AI under the hood feature.
+Logic
+• Query content collection for cards matching user's jurisdiction, language, difficulty, and bucket — excluding seen_content
+• Query scripts collection for one matching script
+• Build queue of 8 items: minimum 1 script, remainder cards — in randomised order
+• 70% of cards from user's primary investment instruments, 20% from adjacent topics, 10% random
+• Difficulty adjusts: 3 consecutive correct answers triggers difficulty + 1; 3 consecutive incorrect triggers difficulty - 1
+• Opening hook: query jurisdiction_data for latest investor_alert or scam_case — include in session document
+• Write session document to sessions collection and return to frontend
+
+4.4  Awareness Index
+What to build
+A scoring system that calculates the user's overall AI literacy score (0-100) across nine skill dimensions after every session.
+Nine skill dimensions and weights
+Skill Dimension	Weight	What it measures
+Hallucination Detection	20%	Identifying fabricated AI-generated financial data
+Deepfake Recognition	15%	Identifying manipulated video and image content
+Source Verification	15%	Ability to verify claims against official sources
+AI Explainability	10%	Understanding how AI tools reach conclusions
+Confidence Calibration	10%	Gap between self-assessed and actual accuracy
+Market Fundamentals	10%	Capital market knowledge relevant to user's instruments
+Verification Behaviour	10%	Actually using verification links and tools
+Risk Awareness	5%	Understanding risk in AI-assisted investment decisions
+Critical Thinking	5%	Questioning AI outputs before acting on them
+
+Technical requirements
+• Post-session background job reads all events for user_id, groups by skill_tested, calculates weighted score
+• Store result in users.skill_scores and recalculate users.progress.awareness_index
+• Append new score to users.progress.awareness_index_history for trend display
+• Update users.progress.badge based on score: 0-24 Novice, 25-49 Aware, 50-74 Informed, 75-89 Proficient, 90-100 Guardian
+• Animated circular progress ring on frontend — 800ms animation showing score change after each session
+
+4.5  Leaderboard
+What to build
+A pre-calculated leaderboard showing top 50 users per jurisdiction per period. Never queried live — recalculated daily by background job at 12 A.M IS.
+User experience
+• Three tabs: This Week, All Time, My Rank
+• Podium display for top 3 (gold, silver, bronze) with animated rise on first load
+• Scrollable list for ranks 4-50 with display_name, badge, awareness_index score, and streak flame if streak > 7 days
+• Current user's row highlighted in light blue if in top 50; pinned at bottom with gap indicator if not
+• Filter bar: jurisdiction dropdown and bucket dropdown — re-fetches relevant pre-calculated leaderboard
+• My Rank tab: personal stats card with rank, percentile, sessions this period, strongest skill, points to next badge
+• Challenge a Friend button generates shareable text with user's score and app link
+Technical requirements
+• APScheduler job recalculates all 24 leaderboard documents (9 jurisdictions × global/by_bucket × weekly/all_time) every 60 minutes
+• Frontend reads from leaderboards collection — single document fetch, under 10ms response time
+• User rank endpoint: GET /leaderboard/user-rank/{user_id}/{jurisdiction} — returns rank, percentile, points to next rank
+• All display names anonymised — no user_id exposed in leaderboard documents
+4.6  Scorecard and Social Sharing
+What to build
+A shareable scorecard image generator and social sharing screen that allows users to share their Awareness Index score on LinkedIn, Twitter/X, Instagram, and WhatsApp.
+Scorecard image
+• 1080x1080 square format (default) and 1080x1920 story format
+• Contents: SwipeWise logo , large circular Awareness Index score ring, badge name(Upgradable and one at a time), three stat rows (sessions, streak, cards completed), QR code linking to app
+• Built as React Native View component captured as PNG using react-native-view-shot
+• Saved to scorecards collection with auto-generated share_hash for public URL
+Sharing
+• LinkedIn: pre-filled post text with score, badge, three learning outcomes, scorecard image attached
+• Twitter/X: 280-character version with score, badge, challenge prompt, app link, scorecard image
+• Instagram: copies image to clipboard, shows instructions, auto-selects story format
+• WhatsApp: shares image with short text and app link via react-native-share
+• Download: saves PNG to camera roll
+• Copy link: generates public URL /score/{share_hash} — Next.js page showing read-only scorecard, no login required
+• Every share action written to events collection for organic reach measurement
+4.8  User levels, Level Progression and Streak System
+What to build
+SwipeWise has a five-tier awareness level system that tracks an investor’s journey from first-time learner to fully AI-literate investor. The five levels are Novice (Awareness Index 0–24), Aware (25–49), Informed (50–74), Proficient (75–89), and Guardian (90–100). Every user begins at Novice. The Awareness Index that drives level assignment is a weighted composite score across nine skill dimensions: Hallucination Detection (20%), Deepfake Recognition (15%), Source Verification (15%), AI Explainability Understanding (10%), Confidence Calibration (10%), Capital Market Fundamentals (10%), Verification Behaviour (10%), Risk Awareness (5%), and Critical Thinking (5%). After every completed game session, a background job reads the user’s full event history, calculates accuracy per skill dimension, applies the weights, and produces a single score from 0 to 100. If this score crosses a level threshold — for example, moves from 49 to 51 — the user’s badge updates from Aware to Informed and a level-up animation plays at the start of their next session. The level system also governs content difficulty. A Novice user receives difficulty-1 cards. As their Awareness Index improves, the session engine automatically steps up difficulty — three consecutive correct answers within a session triggers a difficulty increment for the next card; three consecutive incorrect answers steps difficulty back down.
+The streak system operates independently of the level system but reinforces the same daily engagement behaviour. A streak is defined as completing at least one full Learn Mode or Game Mode session on consecutive calendar days in the user’s local timezone. The streak counter is stored on the user document as streak_current (integer) and the system compares last_active_date to today’s date after every session completion. If the dates are consecutive, streak_current increments by one and last_active_date updates to today. If a day is missed, streak_current resets to one and streak_longest is updated if the broken streak exceeded it. A flame icon with the streak count is shown on the home screen, in the session summary, and on the leaderboard. Users with streaks above seven days receive a flame badge on their leaderboard entry.
+4.9 AI under the hood
+On every swipe card and WiseBot dialogue session, a small button labelled “Why am I seeing this?” is visible to the user. When tapped, it opens a plain-language explanation of three things: why the AI selected this particular content for this user right now, what the card is testing, and how confident the AI is in its own recommendation. For example, a user in India might see: “You are seeing this card because you missed 3 questions about mutual fund NAV in your last session.
+it is composed from two sources: a static explanation written at content creation time (stored in the ai_under_hood field of the card document in MongoDB) and a session-specific reason added by the personalisation engine when it selects the card (why this card for this user right now). The combination is assembled by the backend and served as plain text
+4.8  Question of the day, access to locked content section, scan and verify Api and Text to Speech feature
+What to build
+A questions pops up into the game at a predefined time interval as defined in the configuration file. The top 10 users that answers the question fastest will be shown in a separate star performer leaderboard on the app. Also, there will be an option of converting all the text in the card games of the user to speech.
+When a user pastes a URL or domain name, the app calls the ScamScanner API, receives a risk score and categorisation, and displays the result in plain language: “This website has been flagged as a suspected clone of a registered brokerage platform” or “This domain is not associated with any regulated entity in your jurisdiction.”  The excel should have fields such as question description, answer, explanation, country/jurisdiction, difficulty level etc.
+ SECTION 5 — CONTENT PIPELINE
+The admin panel should have the functionality to generate content 2 options: an excel upload functionality and an LLM Api wherein the admin can attach pdf sources which the LLM will read and then populate the excel sheet template with questions. The admin will then review the questions and then upload the questions on swipewise. SECTION 6 — PLUG-AND-PLAY IMPLEMENTATION
+6.1  Jurisdiction Detection
+When a user opens SwipeWise, the backend determines their jurisdiction in this priority order:
+• Priority 1: User's onboarding selection — stored in users.profile.jurisdiction
+• Priority 2: Device locale — detected from Accept-Language header and timezone
+• Priority 3: Default — EN/GLOBAL config
+The detected jurisdiction is stored in the session document and used for all content queries and config lookups throughout the session.
+6.2  Jurisdiction/country Onboarding Steps
+When a new country joins SwipeWise, the developer provides them with the following onboarding package. No code changes are required from the developer.
+• Step 1 — Config document: regulator completes the jurisdiction configuration template and developer inserts one document into config collection
+• Step 2 — Content upload: regulator uploads jurisdiction_data documents (scam cases, enforcement orders, regulatory rules, investor alerts) via the regulator dashboard upload feature or direct MongoDB insert
+• Step 3 — Content translation: regulator provides translated content via Google Sheet template — developer runs upload_content.py
+• Step 4 — Go live: set config.active = true — jurisdiction immediately available to users
+Target onboarding time: 2-5 working days. Zero code changes required.
+
+6.3  i18n Implementation
+All user-facing text must be managed through i18next language files. This is a hard requirement — the developer will be asked to demonstrate that adding a new language requires only a new JSON language file and zero code changes.
+• Language files stored at /src/i18n/{language_code}.json — one file per language
+• Every screen, button, error message, WiseBot system message, and badge label referenced by key — never written directly in component code
+• Language selection: read from users.profile.language, fallback to device locale, fallback to en
+• WiseBot scripts are stored in MongoDB per language — language_code field on script document. Session engine selects script matching user's language
+• Date, number, and currency formatting handled by i18next locale config — not hardcoded
+
+
+
+
+we ahve this as requirement but we want to create admin panel diffrently using react +vite+ mongo, so spearate the admin feature and give me requiremnt for for admin panel, in above it has used diffrent
