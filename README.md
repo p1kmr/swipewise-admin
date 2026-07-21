@@ -65,6 +65,10 @@ No Firebase CLI required. Free tier: Vercel Hobby + Atlas M0.
 - Admin login (JWT session)
 - Excel upload → review → publish swipe cards
 - PDF → Gemini AI generation → review → import drafts
+- WiseBot scripts — JSON upload with client-side graph validation → review → publish
+- Question of the Day — Excel upload → review → publish
+- Tabbed Review hub (Cards | Scripts | QOTD)
+- Jurisdiction plug-and-play — config, data/registry uploads, go-live toggle, translation import with coverage report
 - Light/dark theme, mobile-friendly layout, PWA install
 
 ## Docs
@@ -72,8 +76,3 @@ No Firebase CLI required. Free tier: Vercel Hobby + Atlas M0.
 - [Project plan](docs/PROJECT_PLAN.md)
 - [Scope of work](docs/SwipeWise_Admin_Panel_SOW.md)
 - Phase plans: [plan/phase-1-foundation.md](plan/phase-1-foundation.md) … [phase-5](plan/phase-5-plug-and-play.md)
-
-## Next phases
-
-- Phase 4: WiseBot scripts + QOTD
-- Phase 5: Jurisdiction plug-and-play + translation import

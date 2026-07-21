@@ -7,31 +7,31 @@
 **Platform:** Vercel `/api` + MongoDB Atlas.
 
 ## Build — Config (Plug-and-Play)
-- [ ] `config` document shape: jurisdiction code, languages, timezone, branding, QOTD interval, `active`.
-- [ ] `api/config/*` routes + `services/configService.js`.
-- [ ] **Jurisdictions page** — config form + activate/deactivate toggle.
+- [x] `config` document shape: jurisdiction code, languages, timezone, branding, QOTD interval, `active`.
+- [x] `api/config/*` routes + `services/configService.js`.
+- [x] **Jurisdictions page** — config form + activate/deactivate toggle.
 
 ## Build — Jurisdiction data & registry
-- [ ] `jurisdiction_data` + `jurisdiction_registry` shapes.
-- [ ] Client-side Excel/CSV parse → `POST /api/jurisdiction-data`, `/api/jurisdiction-registry`.
+- [x] `jurisdiction_data` + `jurisdiction_registry` shapes.
+- [x] Client-side Excel/CSV parse → `POST /api/jurisdiction-data`, `/api/jurisdiction-registry`.
 
 ## Build — Translation import
-- [ ] Upload Google-Sheet export → language content + coverage report.
-- [ ] `api/i18n/import` route (future).
+- [x] Upload Google-Sheet export → language content + coverage report.
+- [x] `api/i18n/import` route.
 
 ## API operations
 ```
 GET/POST /api/config                    # list + upsert jurisdiction config
-PATCH /api/config/:jurisdiction/active  # go-live toggle
+POST /api/config/set-active             # go-live toggle (preferred over dynamic PATCH)
 POST /api/jurisdiction-data             # bulk import
 POST /api/jurisdiction-registry         # bulk import
-POST /api/i18n/import                   # translation + coverage report
+GET/POST /api/i18n/import               # translation import + coverage report
 ```
 
 ## Collections
 `config`, `jurisdiction_data`, `jurisdiction_registry`.
 
 ## Done when
-- [ ] Create config + upload data + set `active = true` → jurisdiction available with no deploy.
-- [ ] **IN, ES, FR** onboarded through the panel.
-- [ ] Translation import shows coverage report with per-language gaps.
+- [x] Create config + upload data + set `active = true` → jurisdiction available with no deploy.
+- [x] **IN, ES, FR** onboarded through the panel.
+- [x] Translation import shows coverage report with per-language gaps.

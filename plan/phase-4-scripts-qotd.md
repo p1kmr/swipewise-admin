@@ -7,29 +7,29 @@
 **Platform:** Vercel `/api` + MongoDB Atlas.
 
 ## Build — WiseBot Scripts
-- [ ] `scripts` document shape: `jurisdiction`, `language_code`, `approval.{published}`, `nodes[]`.
-- [ ] `utils/scriptTemplate.js` — downloadable template.
-- [ ] `utils/validateScriptGraph.js` — validate node graph client-side.
-- [ ] `api/scripts/*` routes + `services/scriptService.js`.
-- [ ] **Scripts page** — upload, validation, review, publish.
+- [x] `scripts` document shape: `jurisdiction`, `language_code`, `approval.{published}`, `nodes[]`.
+- [x] `utils/scriptTemplate.js` — downloadable template.
+- [x] `utils/validateScriptGraph.js` — validate node graph client-side.
+- [x] `api/scripts/*` routes + `services/scriptService.js`.
+- [x] **Scripts page** — upload, validation, review, publish.
 
 ## Build — Question of the Day
-- [ ] `qotd` document shape per schema.
-- [ ] `utils/qotdTemplate.js` + client-side Excel parse.
-- [ ] `api/qotd/*` routes + `services/qotdService.js`.
-- [ ] **QOTD page** — upload, review, publish.
+- [x] `qotd` document shape per schema.
+- [x] `utils/qotdTemplate.js` + client-side Excel parse.
+- [x] `api/qotd/*` routes + `services/qotdService.js`.
+- [x] **QOTD page** — upload, review, publish.
 
 ## API pattern (same as content)
 ```
 GET/POST /api/scripts       # list + import
-PATCH /api/scripts/:id      # publish
+POST /api/scripts/publish-batch  # publish (single or batch)
 GET/POST /api/qotd          # list + import
-PATCH /api/qotd/:id         # publish
+POST /api/qotd/publish-batch     # publish (single or batch)
 ```
 
 ## Collections
 `scripts`, `qotd` — authenticated `/api/*` routes.
 
 ## Done when
-- [ ] Script upload validates graph; published scripts per-language.
-- [ ] QOTD questions upload, review, and publish like swipe cards.
+- [x] Script upload validates graph; published scripts per-language.
+- [x] QOTD questions upload, review, and publish like swipe cards.

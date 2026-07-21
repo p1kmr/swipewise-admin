@@ -5,6 +5,9 @@ dist
 atlas-credentials.env
 .vercel
 scripts/curl-*-response.json
+scripts/curl-publish.json
+scripts/curl-publish-*.json
+scripts/screenshots/
 *.log
 .DS_Store
 

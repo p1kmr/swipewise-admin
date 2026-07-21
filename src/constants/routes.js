@@ -3,5 +3,8 @@ export const ROUTES = {
   DASHBOARD: "/",
   UPLOAD: "/upload",
   GENERATE: "/generate",
+  SCRIPTS: "/scripts",
+  QOTD: "/qotd",
   REVIEW: "/review",
+  JURISDICTIONS: "/jurisdictions",
 };

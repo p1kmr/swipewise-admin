@@ -1,0 +1,12 @@
+{
+  "items": [
+    {
+      "jurisdiction": "IN",
+      "data_type": "investor_alert",
+      "title": "API smoke test alert",
+      "summary": "Test jurisdiction data import for Phase 5.",
+      "language_code": "en",
+      "tags": ["test"]
+    }
+  ]
+}

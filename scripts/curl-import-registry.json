@@ -1,0 +1,12 @@
+{
+  "items": [
+    {
+      "jurisdiction": "IN",
+      "entity_name": "Smoke Test Broker Ltd",
+      "registration_number": "SMK000000001",
+      "entity_type": "broker",
+      "status": "active",
+      "regulator": "SEBI"
+    }
+  ]
+}

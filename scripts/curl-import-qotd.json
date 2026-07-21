@@ -1,0 +1,14 @@
+{
+  "items": [
+    {
+      "question_description": "What is phishing?",
+      "answer": "A scam email",
+      "explanation": "Phishing tries to steal credentials.",
+      "jurisdiction": "IN",
+      "difficulty_level": "easy",
+      "options": ["A scam email", "A fish dish"],
+      "language_code": "en",
+      "skill_tested": "spot_scams"
+    }
+  ]
+}

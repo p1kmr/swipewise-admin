@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, Upload, Sparkles, ClipboardCheck, X } from "lucide-react";
+import { LayoutDashboard, Upload, Sparkles, ClipboardCheck, MessageSquare, Calendar, Globe, X } from "lucide-react";
 import logo from "../assets/swipe-wise-logo.png";
 import { ROUTES } from "../constants/routes.js";
 
@@ -7,6 +7,9 @@ const navItems = [
   { to: ROUTES.DASHBOARD, label: "Dashboard", icon: LayoutDashboard },
   { to: ROUTES.UPLOAD, label: "Upload Cards", icon: Upload },
   { to: ROUTES.GENERATE, label: "Generate with AI", icon: Sparkles },
+  { to: ROUTES.SCRIPTS, label: "Scripts", icon: MessageSquare },
+  { to: ROUTES.QOTD, label: "QOTD", icon: Calendar },
+  { to: ROUTES.JURISDICTIONS, label: "Jurisdictions", icon: Globe },
   { to: ROUTES.REVIEW, label: "Review & Publish", icon: ClipboardCheck },
 ];
 

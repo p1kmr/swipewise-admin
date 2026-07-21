@@ -8,6 +8,9 @@ import DashboardPage from "./pages/DashboardPage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import UploadPage from "./pages/UploadPage.jsx";
 import GeneratePage from "./pages/GeneratePage.jsx";
+import ScriptsPage from "./pages/ScriptsPage.jsx";
+import QotdPage from "./pages/QotdPage.jsx";
+import JurisdictionsPage from "./pages/JurisdictionsPage.jsx";
 import ReviewPage from "./pages/ReviewPage.jsx";
 
 export default function App() {
@@ -22,6 +25,9 @@ export default function App() {
                 <Route path={ROUTES.DASHBOARD} element={<DashboardPage />} />
                 <Route path={ROUTES.UPLOAD} element={<UploadPage />} />
                 <Route path={ROUTES.GENERATE} element={<GeneratePage />} />
+                <Route path={ROUTES.SCRIPTS} element={<ScriptsPage />} />
+                <Route path={ROUTES.QOTD} element={<QotdPage />} />
+                <Route path={ROUTES.JURISDICTIONS} element={<JurisdictionsPage />} />
                 <Route path={ROUTES.REVIEW} element={<ReviewPage />} />
               </Route>
             </Route>

@@ -13,7 +13,7 @@ export async function listContent() {
 }
 
 export async function publishCard(id) {
-  await apiFetch(`/api/content/${id}`, { method: "PATCH" });
+  await publishCards([id]);
 }
 
 export async function publishCards(ids) {

@@ -1,0 +1,27 @@
+{
+  "scripts": [
+    {
+      "jurisdiction": "IN",
+      "language_code": "en",
+      "title": "API smoke test script",
+      "nodes": [
+        {
+          "node_id": "start",
+          "message": "Test message",
+          "wisebot_avatar_state": "neutral",
+          "choices": [{ "label": "Continue", "next_node": "end" }],
+          "is_end": false,
+          "key_learning": ""
+        },
+        {
+          "node_id": "end",
+          "message": "Done",
+          "wisebot_avatar_state": "happy",
+          "choices": [],
+          "is_end": true,
+          "key_learning": "Test learning"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "jurisdiction": "IN",
+  "language_code": "en",
+  "title": "Playwright smoke test script",
+  "nodes": [
+    {
+      "node_id": "start",
+      "message": "Someone promises 30% monthly returns. What do you do?",
+      "wisebot_avatar_state": "concerned",
+      "choices": [
+        { "label": "Invest immediately", "next_node": "wrong" },
+        { "label": "Verify on SEBI list first", "next_node": "end_ok" }
+      ],
+      "is_end": false,
+      "key_learning": ""
+    },
+    {
+      "node_id": "wrong",
+      "message": "That urgency is a red flag.",
+      "wisebot_avatar_state": "encouraging",
+      "choices": [],
+      "is_end": true,
+      "key_learning": "Guaranteed high returns are a classic scam signal."
+    },
+    {
+      "node_id": "end_ok",
+      "message": "Well done — verification first is the right habit.",
+      "wisebot_avatar_state": "happy",
+      "choices": [],
+      "is_end": true,
+      "key_learning": "Always verify advisers on the official regulator list."
+    }
+  ]
+}

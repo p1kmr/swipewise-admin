@@ -30,6 +30,8 @@ export const SKILLS = [
   "Critical Thinking",
 ];
 
+export const WISEBOT_AVATAR_STATES = ["neutral", "happy", "concerned", "encouraging"];
+
 // Excel template column order.
 export const EXCEL_COLUMNS = [
   "jurisdiction",
@@ -47,3 +49,66 @@ export const EXCEL_COLUMNS = [
   "bucket",
   "skill_tested",
 ];
+
+export const QOTD_EXCEL_COLUMNS = [
+  "question_description",
+  "answer",
+  "explanation",
+  "jurisdiction",
+  "difficulty_level",
+  "options",
+  "language_code",
+  "skill_tested",
+  "active_from",
+  "active_to",
+];
+
+export const JURISDICTION_DATA_TYPES = [
+  "scam_case",
+  "enforcement_order",
+  "regulatory_rule",
+  "investor_alert",
+  "market_update",
+  "scam_pattern",
+  "regulator_notice",
+];
+
+export const JURISDICTION_DATA_COLUMNS = [
+  "jurisdiction",
+  "data_type",
+  "title",
+  "summary",
+  "source_url",
+  "event_date",
+  "language_code",
+  "tags",
+];
+
+export const REGISTRY_ENTITY_TYPES = ["broker", "adviser", "fund", "bank", "other"];
+export const REGISTRY_STATUSES = ["active", "suspended", "revoked"];
+
+export const REGISTRY_COLUMNS = [
+  "jurisdiction",
+  "entity_name",
+  "registration_number",
+  "entity_type",
+  "status",
+  "regulator",
+  "website",
+];
+
+export const TRANSLATION_COLUMNS = [
+  "content_type",
+  "source_id",
+  "jurisdiction",
+  "target_language",
+  "scenario_text",
+  "explanation",
+  "action_step",
+  "title",
+  "nodes_json",
+  "question_description",
+  "answer",
+];
+
+export const WISEBOT_AVATAR_OPTIONS = WISEBOT_AVATAR_STATES;
