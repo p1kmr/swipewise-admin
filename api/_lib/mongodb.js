@@ -1,6 +1,7 @@
 import { MongoClient } from "mongodb";
+import { DEFAULT_DB_NAME } from "./constants.js";
 
-const DB_NAME = process.env.MONGODB_DB_NAME || "swipewise_admin";
+const DB_NAME = process.env.MONGODB_DB_NAME || DEFAULT_DB_NAME;
 
 let cached = global._mongoCached;
 

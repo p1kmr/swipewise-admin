@@ -1,19 +1,19 @@
 import { signToken, verifyAdminCredentials } from "../_lib/auth.js";
+import { handleServerError, methodNotAllowed, sendError } from "../_lib/http.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
-    res.setHeader("Allow", "POST");
-    return res.status(405).json({ error: "Method not allowed." });
+    return methodNotAllowed(res, ["POST"]);
   }
 
   try {
     const { email, password } = req.body || {};
     if (!email || !password) {
-      return res.status(400).json({ error: "Email and password are required." });
+      return sendError(res, 400, "Email and password are required.");
     }
 
     if (!verifyAdminCredentials(email, password)) {
-      return res.status(401).json({ error: "Invalid email or password." });
+      return sendError(res, 401, "Invalid email or password.");
     }
 
     const token = signToken(email);
@@ -22,7 +22,6 @@ export default async function handler(req, res) {
       user: { email, role: "admin" },
     });
   } catch (err) {
-    console.error("Login error:", err);
-    return res.status(500).json({ error: err.message || "Login failed." });
+    return handleServerError(res, err, "Login");
   }
 }
