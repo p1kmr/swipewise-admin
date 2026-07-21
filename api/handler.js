@@ -6,7 +6,6 @@ function pathSegments(req) {
   if (Array.isArray(raw) && raw.length) return raw;
   if (typeof raw === "string" && raw) return raw.split("/").filter(Boolean);
 
-  // Fallback when query.path is missing (some Vercel runtimes).
   const url = req.url || "";
   const match = url.match(/^\/api\/(.+?)(?:\?|$)/);
   if (match) return match[1].split("/").filter(Boolean);

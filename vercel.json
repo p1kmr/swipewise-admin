@@ -2,7 +2,7 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "functions": {
-    "api/[...path].js": {
+    "api/handler.js": {
       "maxDuration": 30
     },
     "api/generate-from-pdf.js": {
@@ -10,6 +10,8 @@
     }
   },
   "rewrites": [
+    { "source": "/api/generate-from-pdf", "destination": "/api/generate-from-pdf" },
+    { "source": "/api/(.*)", "destination": "/api/handler?path=$1" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }
