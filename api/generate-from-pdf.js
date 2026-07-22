@@ -28,7 +28,7 @@ export default async function handler(req, res) {
 
     const cards = await generateCardsFromPdf(pdfBase64, mimeType, params);
     if (!cards.length) {
-      return sendError(res, 422, "The model returned no cards.");
+      return sendError(res, 422, "The model returned no questions.");
     }
 
     return res.status(200).json({

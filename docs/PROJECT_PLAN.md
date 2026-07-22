@@ -96,7 +96,8 @@ Phase details: [plan/phase-1-foundation.md](../plan/phase-1-foundation.md) throu
 
 | Collection | Purpose |
 |---|---|
-| `content` | Swipe cards (`approval.published` gate) |
+| `content` | Questions — v3 Question Bank schema, `status`/`approval.published` gate |
+| `counters` | Per-jurisdiction sequences for `Question_ID` generation |
 | `raw_data` | Source PDF metadata (no file stored in POC) |
 | `generation_logs` | AI run lineage |
 | `scripts` | WiseBot dialogues (Phase 4) |
@@ -105,9 +106,19 @@ Phase details: [plan/phase-1-foundation.md](../plan/phase-1-foundation.md) throu
 | `jurisdiction_data` | Regulatory/scam data (Phase 5) |
 | `jurisdiction_registry` | Intermediary registry (Phase 5) |
 
-Document shapes match **`swipewise_schema.json`**.
+The `content` collection follows the **v3 Question Bank Upload Template** (README + Questions +
+Lookup_Values sheets): `Question_ID`, `jurisdiction`, `regulator`, `language_code`, `module`,
+`category`, `question_format` (Swipe_TrueFalse / MCQ_Single / MCQ_Multi / Scenario_Card),
+`question_text`, `scenario_context`, `options`, `correct_answer` (TRUE/FALSE or option letters),
+`explanation_feedback`, `ai_explainer_context`, `regulatory_reference`, `difficulty`
+(Beginner/Intermediate/Advanced), `points`, `media_url`, `tags`, `status`
+(Draft/Active/Inactive/Archived), `effective_date`, `expiry_date`, `created_by`, `reviewer`.
 
-Index on `content`: `{ "approval.published": 1, createdAt: -1 }`.
+- **Import** always writes `status: "Draft"` / `approval.published: false` (nothing auto-publishes).
+  Blank `Question_ID` → auto-assigned `SW-<JUR>-000123`; a filled `Question_ID` upserts.
+- **Publish** sets `status: "Active"` + `approval.published: true` (the gate the user app reads).
+
+Indexes on `content`: `{ question_id: 1 }` unique/sparse; `{ "approval.published": 1, createdAt: -1 }`.
 
 ---
 

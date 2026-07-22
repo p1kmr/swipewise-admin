@@ -1,80 +1,86 @@
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
+import { QUESTION_FORMATS, DIFFICULTIES } from "./constants.js";
 
 export const MODEL = "gemini-2.5-flash";
 
-const VERDICTS = ["trust", "dont_trust", "verify_first"];
-const VISUAL_TYPES = ["whatsapp_bubble", "email", "social_post", "advertisement", "plain_text"];
-const SKILLS = [
-  "Hallucination Detection",
-  "Deepfake Recognition",
-  "Source Verification",
-  "AI Explainability",
-  "Confidence Calibration",
-  "Market Fundamentals",
-  "Verification Behaviour",
-  "Risk Awareness",
-  "Critical Thinking",
+const MODULES = [
+  "Fraud Awareness",
+  "Investing Basics",
+  "Risk Management",
+  "Digital & Cyber Safety",
+  "Regulatory & Compliance",
+  "Retirement Planning",
+  "Market Manipulation",
 ];
 
-const cardSchema = {
+// Response schema — one object per generated question (v3 Question Bank shape).
+const questionSchema = {
   type: SchemaType.OBJECT,
   properties: {
-    scenario_text: { type: SchemaType.STRING },
-    visual_type: { type: SchemaType.STRING, format: "enum", enum: VISUAL_TYPES },
-    verdict: { type: SchemaType.STRING, format: "enum", enum: VERDICTS },
-    explanation: { type: SchemaType.STRING },
-    red_flags: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
-    action_step: { type: SchemaType.STRING },
-    verification_link: { type: SchemaType.STRING },
-    ai_under_hood_why_shown: { type: SchemaType.STRING },
-    ai_under_hood_what_it_tests: { type: SchemaType.STRING },
-    difficulty: { type: SchemaType.NUMBER },
-    skill_tested: { type: SchemaType.STRING, format: "enum", enum: SKILLS },
+    module: { type: SchemaType.STRING, format: "enum", enum: MODULES },
+    category: { type: SchemaType.STRING },
+    question_format: { type: SchemaType.STRING, format: "enum", enum: QUESTION_FORMATS },
+    question_text: { type: SchemaType.STRING },
+    scenario_context: { type: SchemaType.STRING },
+    option_a: { type: SchemaType.STRING },
+    option_b: { type: SchemaType.STRING },
+    option_c: { type: SchemaType.STRING },
+    option_d: { type: SchemaType.STRING },
+    correct_answer: { type: SchemaType.STRING },
+    explanation_feedback: { type: SchemaType.STRING },
+    ai_explainer_context: { type: SchemaType.STRING },
+    regulatory_reference: { type: SchemaType.STRING },
+    difficulty: { type: SchemaType.STRING, format: "enum", enum: DIFFICULTIES },
+    tags: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
   },
   required: [
-    "scenario_text",
-    "visual_type",
-    "verdict",
-    "explanation",
-    "red_flags",
-    "action_step",
-    "ai_under_hood_why_shown",
-    "ai_under_hood_what_it_tests",
+    "module",
+    "category",
+    "question_format",
+    "question_text",
+    "correct_answer",
+    "explanation_feedback",
+    "ai_explainer_context",
     "difficulty",
-    "skill_tested",
   ],
 };
 
-const responseSchema = { type: SchemaType.ARRAY, items: cardSchema };
+const responseSchema = { type: SchemaType.ARRAY, items: questionSchema };
 
 export function buildPrompt(params) {
   const {
     jurisdiction = "the target jurisdiction",
+    regulator = "",
     language_code = "en",
-    difficulty_min = 1,
-    difficulty_max = 5,
-    bucket = "",
-    skills = [],
+    difficulty = "",
+    module = "",
+    formats = [],
     count = 5,
   } = params;
 
+  const formatLine = formats.length
+    ? `- Use only these Question_Format values: ${formats.join(", ")}.`
+    : "- Prefer Swipe_TrueFalse; use MCQ_Single or MCQ_Multi where the source supports distinct options.";
+
   return [
     "You are a content designer for SwipeWise, an investor-literacy training app.",
-    `Read the attached source document and design ${count} distinct "swipe card" scenarios`,
+    `Read the attached source document and design ${count} distinct investor-education questions`,
     "that teach retail investors to spot misinformation, scams, and AI-generated deception.",
     "",
     "Rules:",
-    "- Ground every scenario in facts, rules, or examples found in the attached document. Do not invent regulations.",
+    "- Ground every question in facts, rules, or examples found in the attached document. Do not invent regulations.",
     `- Jurisdiction: ${jurisdiction}. Write for that market's rules and context.`,
+    regulator ? `- Regulator: ${regulator}.` : "",
     `- Language: write all user-facing text using language code "${language_code}".`,
-    `- difficulty is an integer from ${difficulty_min} to ${difficulty_max} (1 = easy, 5 = expert).`,
-    bucket ? `- Content bucket / theme: ${bucket}.` : "",
-    skills.length ? `- Prioritise these skills where the source supports them: ${skills.join(", ")}.` : "",
-    '- "verdict" is the correct judgement a user should reach: "trust", "dont_trust", or "verify_first".',
-    '- "visual_type" is how the scenario is framed: whatsapp_bubble, email, social_post, advertisement, or plain_text.',
-    '- "red_flags" lists the specific warning signs present (use an empty array when verdict is "trust").',
-    '- "explanation" says why the verdict is correct; "action_step" is one concrete next step for the user.',
-    '- "ai_under_hood_why_shown" explains why this card was surfaced; "ai_under_hood_what_it_tests" names the skill it probes.',
+    module ? `- Learning module: ${module}.` : "",
+    difficulty ? `- Difficulty for all questions: ${difficulty}.` : "- difficulty is Beginner, Intermediate, or Advanced.",
+    formatLine,
+    '- "category" is a short sub-topic label, e.g. "Phishing", "Ponzi Scheme", "Legitimate Practice".',
+    '- For Swipe_TrueFalse and Scenario_Card: "correct_answer" is "TRUE" (statement is legitimate/correct) or "FALSE" (statement is a red flag/fraud). Leave option_a–d empty.',
+    '- For MCQ_Single / MCQ_Multi: fill option_a–d and set "correct_answer" to the correct option letter(s), comma-separated for MCQ_Multi (e.g. "A,C").',
+    '- "explanation_feedback" is the short teaching line shown to the user after they answer.',
+    '- "ai_explainer_context" is richer grounding text used only by the in-app AI assistant — include nuance, edge cases, and how the answer would change under different facts.',
+    '- "regulatory_reference" cites the backing rule where available, e.g. "SEC Rule 10b-5".',
     "- No personal data, no real named individuals, no real account numbers.",
     "Return ONLY the JSON array defined by the response schema.",
   ]
@@ -82,29 +88,58 @@ export function buildPrompt(params) {
     .join("\n");
 }
 
-export function normalizeCards(cards, params) {
-  const jurisdiction = params.jurisdiction || "";
-  const language_code = params.language_code || "en";
-  const bucket = params.bucket || "";
+function normalizeAnswer(format, raw) {
+  const value = String(raw || "").trim();
+  if (format === "MCQ_Single" || format === "MCQ_Multi") {
+    return value
+      .split(/[,;|]/)
+      .map((s) => s.trim().toUpperCase())
+      .filter(Boolean);
+  }
+  const upper = value.toUpperCase();
+  return upper === "TRUE" || upper === "FALSE" ? upper : upper;
+}
 
-  return (Array.isArray(cards) ? cards : []).map((c) => ({
-    jurisdiction,
-    language_code,
-    bucket,
-    visual_type: c.visual_type || "plain_text",
-    scenario_text: c.scenario_text || "",
-    verdict: c.verdict || "",
-    explanation: c.explanation || "",
-    red_flags: Array.isArray(c.red_flags) ? c.red_flags : [],
-    action_step: c.action_step || "",
-    verification_link: c.verification_link || "",
-    ai_under_hood: {
-      why_shown: c.ai_under_hood_why_shown || "",
-      what_it_tests: c.ai_under_hood_what_it_tests || "",
-    },
-    difficulty: Number(c.difficulty) || 3,
-    skill_tested: c.skill_tested || "",
-  }));
+export function normalizeQuestions(questions, params) {
+  const jurisdiction = String(params.jurisdiction || "").trim().toUpperCase();
+  const regulator = String(params.regulator || "").trim().toUpperCase();
+  const language_code = params.language_code || "en";
+
+  return (Array.isArray(questions) ? questions : []).map((q) => {
+    const format = q.question_format || "Swipe_TrueFalse";
+    const options = {};
+    ["a", "b", "c", "d"].forEach((k) => {
+      const v = String(q[`option_${k}`] || "").trim();
+      if (v) options[k.toUpperCase()] = v;
+    });
+    const isMcq = format === "MCQ_Single" || format === "MCQ_Multi";
+
+    return {
+      question_id: null,
+      jurisdiction,
+      regulator,
+      language_code,
+      module: q.module || "",
+      category: q.category || "",
+      question_format: format,
+      question_text: q.question_text || "",
+      scenario_context: q.scenario_context || "",
+      options: isMcq ? options : {},
+      correct_answer: normalizeAnswer(format, q.correct_answer),
+      explanation_feedback: q.explanation_feedback || "",
+      ai_explainer_context: q.ai_explainer_context || "",
+      regulatory_reference: q.regulatory_reference || "",
+      difficulty: q.difficulty || "Beginner",
+      points: 10,
+      media_url: "",
+      tags: Array.isArray(q.tags) ? q.tags : [],
+      status: "Draft",
+      effective_date: null,
+      expiry_date: null,
+      created_by: "",
+      reviewer: "",
+    };
+  });
 }
 
 export async function generateCardsFromPdf(pdfBase64, mimeType, params) {
@@ -135,6 +170,6 @@ export async function generateCardsFromPdf(pdfBase64, mimeType, params) {
     ],
   });
 
-  const cards = JSON.parse(result.response.text());
-  return normalizeCards(cards, params);
+  const questions = JSON.parse(result.response.text());
+  return normalizeQuestions(questions, params);
 }

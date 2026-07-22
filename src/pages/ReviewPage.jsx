@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
-import { CheckCircle2, Loader2, RefreshCw, ClipboardCheck } from "lucide-react";
-import { listContent, publishCards } from "../services/contentService.js";
+import { CheckCircle2, Loader2, RefreshCw, ClipboardCheck, Archive } from "lucide-react";
+import { listContent, publishQuestions, setQuestionStatus } from "../services/contentService.js";
 import { listScripts, publishScripts } from "../services/scriptService.js";
 import { listQotd, publishQotdItems } from "../services/qotdService.js";
-import { VERDICT_META } from "../constants/enums.js";
+import { STATUS_META } from "../constants/enums.js";
 
 const TABS = [
-  { id: "cards", label: "Cards" },
+  { id: "questions", label: "Questions" },
   { id: "scripts", label: "Scripts" },
   { id: "qotd", label: "QOTD" },
 ];
@@ -17,7 +17,7 @@ function truncate(text, n = 70) {
 }
 
 export default function ReviewPage() {
-  const [tab, setTab] = useState("cards");
+  const [tab, setTab] = useState("questions");
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -29,7 +29,7 @@ export default function ReviewPage() {
     setError("");
     setSelected(new Set());
     try {
-      if (tab === "cards") setItems(await listContent());
+      if (tab === "questions") setItems(await listContent());
       else if (tab === "scripts") setItems(await listScripts());
       else setItems(await listQotd());
     } catch (err) {
@@ -43,7 +43,11 @@ export default function ReviewPage() {
     refresh();
   }, [tab]);
 
-  const drafts = items.filter((i) => !i.approval?.published);
+  // Questions use the Status field; scripts/qotd use the approval.published gate.
+  const drafts =
+    tab === "questions"
+      ? items.filter((i) => (i.status || "Draft") !== "Active")
+      : items.filter((i) => !i.approval?.published);
 
   function toggle(id) {
     setSelected((prev) => {
@@ -61,47 +65,35 @@ export default function ReviewPage() {
   }
 
   async function publishIds(ids) {
-    if (tab === "cards") await publishCards(ids);
+    if (tab === "questions") await publishQuestions(ids);
     else if (tab === "scripts") await publishScripts(ids);
     else await publishQotdItems(ids);
   }
 
-  async function handlePublish(id) {
+  async function runAction(action) {
     setBusy(true);
     setError("");
     try {
-      await publishIds([id]);
-      setSelected((prev) => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
-      await refresh();
-    } catch (err) {
-      setError(err.message || "Publish failed.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function handlePublishSelected() {
-    if (selected.size === 0) return;
-    setBusy(true);
-    setError("");
-    try {
-      await publishIds([...selected]);
+      await action();
       setSelected(new Set());
       await refresh();
     } catch (err) {
-      setError(err.message || "Publish failed.");
+      setError(err.message || "Action failed.");
     } finally {
       setBusy(false);
     }
   }
 
+  const handlePublish = (id) => runAction(() => publishIds([id]));
+  const handleArchive = (id) => runAction(() => setQuestionStatus([id], "Archived"));
+  const handlePublishSelected = () => {
+    if (selected.size === 0) return;
+    return runAction(() => publishIds([...selected]));
+  };
+
   const emptyMessage =
-    tab === "cards"
-      ? "No cards yet. Upload some on the Upload page."
+    tab === "questions"
+      ? "No questions yet. Upload some on the Upload page."
       : tab === "scripts"
         ? "No scripts yet. Upload JSON on the Scripts page."
         : "No questions yet. Upload Excel on the QOTD page.";
@@ -112,7 +104,7 @@ export default function ReviewPage() {
         <div>
           <h2 className="text-xl font-semibold">Review &amp; publish</h2>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            {drafts.length} draft{drafts.length === 1 ? "" : "s"} pending · {items.length} total
+            {drafts.length} pending · {items.length} total
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -169,8 +161,8 @@ export default function ReviewPage() {
             <ClipboardCheck size={24} />
             {emptyMessage}
           </div>
-        ) : tab === "cards" ? (
-          <CardsTable
+        ) : tab === "questions" ? (
+          <QuestionsTable
             items={items}
             drafts={drafts}
             selected={selected}
@@ -178,6 +170,7 @@ export default function ReviewPage() {
             onToggle={toggle}
             onToggleAll={toggleAll}
             onPublish={handlePublish}
+            onArchive={handleArchive}
           />
         ) : tab === "scripts" ? (
           <ScriptsTable
@@ -205,7 +198,19 @@ export default function ReviewPage() {
   );
 }
 
-function StatusCell({ published }) {
+function StatusBadge({ status }) {
+  const meta = STATUS_META[status] || {
+    label: status || "Draft",
+    badge: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300",
+  };
+  return (
+    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${meta.badge}`}>
+      {meta.label}
+    </span>
+  );
+}
+
+function PublishedCell({ published }) {
   return published ? (
     <span className="inline-flex items-center gap-1 text-xs font-medium text-verdict-trust">
       <CheckCircle2 size={14} /> Published
@@ -229,7 +234,7 @@ function PublishCell({ published, id, busy, onPublish }) {
   );
 }
 
-function CardsTable({ items, drafts, selected, busy, onToggle, onToggleAll, onPublish }) {
+function QuestionsTable({ items, drafts, selected, busy, onToggle, onToggleAll, onPublish, onArchive }) {
   return (
     <table className="w-full text-left text-sm">
       <thead className="border-b border-surface-light-border text-xs uppercase text-gray-500 dark:border-surface-dark-border dark:text-gray-400">
@@ -239,56 +244,65 @@ function CardsTable({ items, drafts, selected, busy, onToggle, onToggleAll, onPu
               type="checkbox"
               checked={drafts.length > 0 && selected.size === drafts.length}
               onChange={onToggleAll}
-              aria-label="Select all drafts"
+              aria-label="Select all pending"
             />
           </th>
-          <th className="p-3">Scenario</th>
-          <th className="p-3">Verdict</th>
-          <th className="p-3">Jurisdiction</th>
-          <th className="p-3">Lang</th>
-          <th className="p-3">Skill</th>
+          <th className="p-3">Question ID</th>
+          <th className="p-3">Question</th>
+          <th className="p-3">Format</th>
+          <th className="p-3">Jur.</th>
+          <th className="p-3">Reg.</th>
+          <th className="p-3">Category</th>
+          <th className="p-3">Diff.</th>
           <th className="p-3">Status</th>
           <th className="p-3" />
         </tr>
       </thead>
       <tbody>
         {items.map((item) => {
-          const published = item.approval?.published;
-          const verdict = VERDICT_META[item.verdict] || {
-            label: item.verdict || "—",
-            badge: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300",
-          };
+          const active = (item.status || "Draft") === "Active";
           return (
             <tr
               key={item.id}
               className="border-b border-surface-light-border last:border-0 dark:border-surface-dark-border"
             >
               <td className="p-3">
-                {!published ? (
+                {!active ? (
                   <input
                     type="checkbox"
                     checked={selected.has(item.id)}
                     onChange={() => onToggle(item.id)}
-                    aria-label="Select card"
+                    aria-label="Select question"
                   />
                 ) : null}
               </td>
-              <td className="max-w-xs p-3">{truncate(item.scenario_text)}</td>
-              <td className="p-3">
-                <span
-                  className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${verdict.badge}`}
-                >
-                  {verdict.label}
-                </span>
+              <td className="p-3 font-mono text-xs text-gray-500 dark:text-gray-400">
+                {item.question_id || "—"}
               </td>
+              <td className="max-w-xs p-3">{truncate(item.question_text)}</td>
+              <td className="p-3 text-xs text-gray-500 dark:text-gray-400">{item.question_format}</td>
               <td className="p-3">{item.jurisdiction}</td>
-              <td className="p-3">{item.language_code}</td>
-              <td className="p-3 text-gray-500 dark:text-gray-400">{item.skill_tested || "—"}</td>
+              <td className="p-3">{item.regulator}</td>
+              <td className="p-3 text-gray-500 dark:text-gray-400">{item.category || "—"}</td>
+              <td className="p-3 text-gray-500 dark:text-gray-400">{item.difficulty || "—"}</td>
               <td className="p-3">
-                <StatusCell published={published} />
+                <StatusBadge status={item.status || "Draft"} />
               </td>
               <td className="p-3 text-right">
-                <PublishCell published={published} id={item.id} busy={busy} onPublish={onPublish} />
+                <div className="flex justify-end gap-2">
+                  {!active ? (
+                    <PublishCell published={false} id={item.id} busy={busy} onPublish={onPublish} />
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => onArchive(item.id)}
+                      disabled={busy}
+                      className="inline-flex items-center gap-1 rounded-lg border border-surface-light-border px-3 py-1.5 text-xs font-medium transition hover:border-primary dark:border-surface-dark-border"
+                    >
+                      <Archive size={12} /> Archive
+                    </button>
+                  )}
+                </div>
               </td>
             </tr>
           );
@@ -342,7 +356,7 @@ function ScriptsTable({ items, drafts, selected, busy, onToggle, onToggleAll, on
               <td className="p-3">{item.jurisdiction}</td>
               <td className="p-3">{item.language_code}</td>
               <td className="p-3">
-                <StatusCell published={published} />
+                <PublishedCell published={published} />
               </td>
               <td className="p-3 text-right">
                 <PublishCell published={published} id={item.id} busy={busy} onPublish={onPublish} />
@@ -399,7 +413,7 @@ function QotdTable({ items, drafts, selected, busy, onToggle, onToggleAll, onPub
               <td className="p-3">{item.difficulty_level}</td>
               <td className="p-3">{item.language_code || "—"}</td>
               <td className="p-3">
-                <StatusCell published={published} />
+                <PublishedCell published={published} />
               </td>
               <td className="p-3 text-right">
                 <PublishCell published={published} id={item.id} busy={busy} onPublish={onPublish} />
