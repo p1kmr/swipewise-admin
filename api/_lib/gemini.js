@@ -142,6 +142,54 @@ export function normalizeQuestions(questions, params) {
   });
 }
 
+const LANGUAGE_NAMES = {
+  en: "English",
+  hi: "Hindi",
+  mr: "Marathi",
+  es: "Spanish",
+  fr: "French",
+  ar: "Arabic",
+  zh: "Chinese",
+  pt: "Portuguese",
+  ja: "Japanese",
+  de: "German",
+};
+
+// Translate an array of strings into targetLang. Returns a same-length array (falls back to
+// the original string for any element the model drops or leaves blank).
+export async function translateStrings(strings, targetLang) {
+  const list = Array.isArray(strings) ? strings : [];
+  if (!list.length) return [];
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error("GEMINI_API_KEY is not configured.");
+
+  const langName = LANGUAGE_NAMES[targetLang] || targetLang;
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const model = genAI.getGenerativeModel({
+    model: MODEL,
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseSchema: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+      temperature: 0.2,
+    },
+  });
+
+  const prompt = [
+    `Translate each string in the JSON array below into ${langName} (language code "${targetLang}").`,
+    "Return a JSON array of the SAME length and order, containing only the translated strings.",
+    "Preserve meaning and tone. Do NOT translate proper nouns, regulator names (SEBI, SEC, FCA, MAS, ASIC, etc.), URLs, or single option letters.",
+    "Keep numbers, currency symbols, and TRUE/FALSE intact.",
+    "Input:",
+    JSON.stringify(list),
+  ].join("\n");
+
+  const result = await model.generateContent(prompt);
+  const out = JSON.parse(result.response.text());
+  if (!Array.isArray(out) || out.length !== list.length) return list;
+  return out.map((s, i) => (typeof s === "string" && s.trim() ? s : list[i]));
+}
+
 export async function generateCardsFromPdf(pdfBase64, mimeType, params) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {

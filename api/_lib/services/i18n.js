@@ -2,6 +2,8 @@ import { ObjectId } from "mongodb";
 import { COLLECTIONS } from "../constants.js";
 import { getDb } from "../mongodb.js";
 import { DRAFT_APPROVAL } from "./approval.js";
+import { getNextQuestionId } from "./content.js";
+import { translateStrings } from "../gemini.js";
 
 const CONTENT_TYPES = new Set(["content", "script", "qotd"]);
 
@@ -151,4 +153,107 @@ export async function importTranslations(rows) {
   }
 
   return { saved: saved.length, ids: saved, skipped, coverage };
+}
+
+// --- AI translation: create translated Draft copies without any manual source_id ---
+
+const AI_TRANSLATABLE = new Set(["content", "qotd"]);
+
+// Collect the translatable strings from a source doc as [{ path, text }].
+function collectTranslatable(contentType, doc) {
+  const parts = [];
+  const push = (path, val) => {
+    if (val != null && String(val).trim()) parts.push({ path, text: String(val) });
+  };
+
+  if (contentType === "content") {
+    push("question_text", doc.question_text);
+    push("explanation_feedback", doc.explanation_feedback);
+    push("scenario_context", doc.scenario_context);
+    push("ai_explainer_context", doc.ai_explainer_context);
+    ["A", "B", "C", "D"].forEach((k) => push(`options.${k}`, doc.options?.[k]));
+  } else if (contentType === "qotd") {
+    push("question_description", doc.question_description);
+    push("answer", doc.answer);
+    push("explanation", doc.explanation);
+    (Array.isArray(doc.options) ? doc.options : []).forEach((opt, i) => push(`options.${i}`, opt));
+  }
+  return parts;
+}
+
+// Apply translated strings back onto a cloned doc by path.
+function applyTranslations(doc, parts, translated) {
+  parts.forEach((p, i) => {
+    const value = translated[i];
+    if (value == null) return;
+    if (p.path.startsWith("options.")) {
+      const key = p.path.slice("options.".length);
+      if (Array.isArray(doc.options)) doc.options[Number(key)] = value;
+      else {
+        doc.options = { ...(doc.options || {}) };
+        doc.options[key] = value;
+      }
+    } else {
+      doc[p.path] = value;
+    }
+  });
+  return doc;
+}
+
+export async function translateWithAI({ content_type, ids, target_language }) {
+  const contentType = String(content_type || "content").trim();
+  if (!AI_TRANSLATABLE.has(contentType)) {
+    throw new Error(`AI translation supports content and qotd (got "${content_type}").`);
+  }
+  const target = String(target_language || "").trim();
+  if (!target) throw new Error("target_language is required.");
+
+  const db = await getDb();
+  const now = new Date();
+  const collection = collectionForType(contentType);
+
+  const created = [];
+  const skipped = [];
+
+  for (const rawId of ids) {
+    if (!ObjectId.isValid(rawId)) {
+      skipped.push({ id: rawId, reason: "invalid id" });
+      continue;
+    }
+    const source = await db.collection(collection).findOne({ _id: new ObjectId(rawId) });
+    if (!source) {
+      skipped.push({ id: rawId, reason: "not found" });
+      continue;
+    }
+    if ((source.language_code || "") === target) {
+      skipped.push({ id: rawId, reason: `already in ${target}` });
+      continue;
+    }
+
+    const parts = collectTranslatable(contentType, source);
+    const translated = parts.length ? await translateStrings(parts.map((p) => p.text), target) : [];
+
+    const { _id, approval, createdAt, question_id, ...rest } = source;
+    let doc = {
+      ...rest,
+      options: Array.isArray(source.options) ? [...source.options] : { ...(source.options || {}) },
+      language_code: target,
+      approval: DRAFT_APPROVAL,
+      status: "Draft",
+      translation_of: rawId,
+      createdAt: now,
+      updatedAt: now,
+    };
+    doc = applyTranslations(doc, parts, translated);
+
+    if (contentType === "content") {
+      doc.question_id = await getNextQuestionId(db, doc.jurisdiction);
+    }
+
+    const result = await db.collection(collection).insertOne(doc);
+    created.push(result.insertedId.toString());
+  }
+
+  const coverage = await getCoverageReport();
+  return { created: created.length, ids: created, skipped, coverage };
 }
