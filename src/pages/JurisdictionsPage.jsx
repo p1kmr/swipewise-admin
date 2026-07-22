@@ -4,7 +4,6 @@ import {
   Download,
   Upload,
   CheckCircle2,
-  AlertTriangle,
   Loader2,
   Power,
   RefreshCw,
@@ -20,15 +19,13 @@ import {
 } from "../services/configService.js";
 import { importJurisdictionData } from "../services/jurisdictionDataService.js";
 import { importJurisdictionRegistry } from "../services/jurisdictionRegistryService.js";
-import { getCoverageReport, importTranslations, translateWithAI } from "../services/i18nService.js";
+import { getCoverageReport, translateWithAI } from "../services/i18nService.js";
 import { listContent } from "../services/contentService.js";
 import { listQotd } from "../services/qotdService.js";
 import { downloadJurisdictionDataTemplate } from "../utils/jurisdictionDataTemplate.js";
 import { parseJurisdictionDataFile } from "../utils/parseJurisdictionData.js";
 import { downloadRegistryTemplate } from "../utils/registryTemplate.js";
 import { parseRegistryFile } from "../utils/parseRegistry.js";
-import { downloadTranslationTemplate } from "../utils/translationTemplate.js";
-import { parseTranslationFile } from "../utils/parseTranslations.js";
 import { WISEBOT_AVATAR_OPTIONS, LANGUAGE_CODES } from "../constants/enums.js";
 
 const TABS = [
@@ -341,7 +338,6 @@ export default function JurisdictionsPage() {
 
   const dataInputRef = useRef(null);
   const registryInputRef = useRef(null);
-  const translationInputRef = useRef(null);
 
   const [dataFile, setDataFile] = useState("");
   const [dataParsing, setDataParsing] = useState(false);
@@ -357,12 +353,6 @@ export default function JurisdictionsPage() {
   const [registryImported, setRegistryImported] = useState(0);
   const [registryError, setRegistryError] = useState("");
 
-  const [translationFile, setTranslationFile] = useState("");
-  const [translationParsing, setTranslationParsing] = useState(false);
-  const [translationResult, setTranslationResult] = useState(null);
-  const [translationImporting, setTranslationImporting] = useState(false);
-  const [translationImportResult, setTranslationImportResult] = useState(null);
-  const [translationError, setTranslationError] = useState("");
   const [coverage, setCoverage] = useState([]);
 
   async function refreshConfigs() {
@@ -530,41 +520,6 @@ export default function JurisdictionsPage() {
       setRegistryError(err.message || "Import failed.");
     } finally {
       setRegistryImporting(false);
-    }
-  }
-
-  async function handleTranslationFile(event) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    setTranslationError("");
-    setTranslationImportResult(null);
-    setTranslationResult(null);
-    setTranslationFile(file.name);
-    setTranslationParsing(true);
-    try {
-      setTranslationResult(await parseTranslationFile(file));
-    } catch (err) {
-      setTranslationError(err.message || "Could not read file.");
-    } finally {
-      setTranslationParsing(false);
-    }
-  }
-
-  async function handleTranslationImport() {
-    if (!translationResult?.valid?.length) return;
-    setTranslationImporting(true);
-    setTranslationError("");
-    try {
-      const result = await importTranslations(translationResult.valid);
-      setTranslationImportResult(result);
-      setCoverage(result.coverage || []);
-      setTranslationResult(null);
-      setTranslationFile("");
-      if (translationInputRef.current) translationInputRef.current.value = "";
-    } catch (err) {
-      setTranslationError(err.message || "Import failed.");
-    } finally {
-      setTranslationImporting(false);
     }
   }
 
@@ -851,42 +806,6 @@ export default function JurisdictionsPage() {
       {tab === "translations" ? (
         <div className="space-y-6">
           <AiTranslatePanel />
-
-          <div className="flex items-center gap-3">
-            <div className="h-px flex-1 bg-surface-light-border dark:bg-surface-dark-border" />
-            <span className="text-xs uppercase tracking-wide text-gray-400">or import a sheet</span>
-            <div className="h-px flex-1 bg-surface-light-border dark:bg-surface-dark-border" />
-          </div>
-
-          <UploadPanel
-            title="Translation import"
-            description="Upload a Google Sheet export to create translated draft copies of existing content, scripts, or QOTD rows. Each row's source_id is the MongoDB id of the document being translated — copy it from the ID button on the Review & Publish page."
-            templateLabel="Sheet with content_type, source_id, target_language, and translated fields."
-            onDownloadTemplate={downloadTranslationTemplate}
-            onImport={handleTranslationImport}
-            parsing={translationParsing}
-            result={translationResult}
-            importing={translationImporting}
-            imported={translationImportResult?.saved ?? 0}
-            error={translationError}
-            inputRef={translationInputRef}
-            onFile={handleTranslationFile}
-            fileName={translationFile}
-          />
-
-          {translationImportResult?.skipped?.length ? (
-            <div className="card-surface p-4 text-sm">
-              <p className="mb-2 font-medium flex items-center gap-2">
-                <AlertTriangle size={16} className="text-verdict-verify_first" />
-                Skipped rows
-              </p>
-              {translationImportResult.skipped.slice(0, 10).map(({ row, reason }) => (
-                <p key={row} className="text-verdict-dont_trust">
-                  Row {row}: {reason}
-                </p>
-              ))}
-            </div>
-          ) : null}
 
           <div className="card-surface p-4">
             <h3 className="font-medium">Coverage report</h3>
