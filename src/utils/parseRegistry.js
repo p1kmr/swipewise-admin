@@ -1,5 +1,6 @@
 import * as XLSX from "xlsx";
 import { REGISTRY_ENTITY_TYPES, REGISTRY_STATUSES } from "../constants/enums.js";
+import { assertExpectedTemplate } from "./detectTemplate.js";
 
 const REQUIRED = ["jurisdiction", "entity_name", "registration_number"];
 
@@ -10,6 +11,7 @@ function clean(value) {
 export async function parseRegistryFile(file) {
   const buffer = await file.arrayBuffer();
   const workbook = XLSX.read(buffer, { type: "array" });
+  assertExpectedTemplate(workbook, "registry");
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
   const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
 

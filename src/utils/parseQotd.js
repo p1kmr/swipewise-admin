@@ -1,5 +1,6 @@
 import * as XLSX from "xlsx";
 import { SKILLS } from "../constants/enums.js";
+import { assertExpectedTemplate } from "./detectTemplate.js";
 
 const REQUIRED = ["question_description", "answer", "explanation", "jurisdiction", "difficulty_level"];
 
@@ -18,6 +19,7 @@ function clean(value) {
 export async function parseQotdFile(file) {
   const buffer = await file.arrayBuffer();
   const workbook = XLSX.read(buffer, { type: "array" });
+  assertExpectedTemplate(workbook, "qotd");
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
   const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
 

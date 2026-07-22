@@ -1,4 +1,5 @@
 import * as XLSX from "xlsx";
+import { assertExpectedTemplate } from "./detectTemplate.js";
 
 const REQUIRED = ["content_type", "source_id", "target_language"];
 const CONTENT_TYPES = new Set(["content", "script", "qotd"]);
@@ -10,6 +11,7 @@ function clean(value) {
 export async function parseTranslationFile(file) {
   const buffer = await file.arrayBuffer();
   const workbook = XLSX.read(buffer, { type: "array" });
+  assertExpectedTemplate(workbook, "translation");
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
   const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
 

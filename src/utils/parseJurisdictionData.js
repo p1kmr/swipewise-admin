@@ -1,5 +1,6 @@
 import * as XLSX from "xlsx";
 import { JURISDICTION_DATA_TYPES } from "../constants/enums.js";
+import { assertExpectedTemplate } from "./detectTemplate.js";
 
 const REQUIRED = ["jurisdiction", "data_type", "title", "summary"];
 
@@ -18,6 +19,7 @@ function splitList(value) {
 export async function parseJurisdictionDataFile(file) {
   const buffer = await file.arrayBuffer();
   const workbook = XLSX.read(buffer, { type: "array" });
+  assertExpectedTemplate(workbook, "jurisdiction_data");
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
   const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
 

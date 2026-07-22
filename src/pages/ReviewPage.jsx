@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { CheckCircle2, Loader2, RefreshCw, ClipboardCheck, Archive } from "lucide-react";
+import { CheckCircle2, Loader2, RefreshCw, ClipboardCheck, Archive, Copy, Check } from "lucide-react";
 import { listContent, publishQuestions, setQuestionStatus } from "../services/contentService.js";
 import { listScripts, publishScripts } from "../services/scriptService.js";
 import { listQotd, publishQotdItems } from "../services/qotdService.js";
@@ -220,6 +220,30 @@ function PublishedCell({ published }) {
   );
 }
 
+// Copy the MongoDB _id — used as source_id when importing translations.
+function CopyIdButton({ id }) {
+  const [copied, setCopied] = useState(false);
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(id);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* clipboard unavailable */
+    }
+  }
+  return (
+    <button
+      type="button"
+      onClick={copy}
+      title={`Copy ID ${id} (use as source_id for translations)`}
+      className="inline-flex items-center gap-1 rounded-lg border border-surface-light-border px-2 py-1.5 text-xs font-medium transition hover:border-primary hover:text-primary dark:border-surface-dark-border"
+    >
+      {copied ? <Check size={12} /> : <Copy size={12} />} ID
+    </button>
+  );
+}
+
 function PublishCell({ published, id, busy, onPublish }) {
   if (published) return null;
   return (
@@ -290,6 +314,7 @@ function QuestionsTable({ items, drafts, selected, busy, onToggle, onToggleAll, 
               </td>
               <td className="p-3 text-right">
                 <div className="flex justify-end gap-2">
+                  <CopyIdButton id={item.id} />
                   {!active ? (
                     <PublishCell published={false} id={item.id} busy={busy} onPublish={onPublish} />
                   ) : (
@@ -359,7 +384,10 @@ function ScriptsTable({ items, drafts, selected, busy, onToggle, onToggleAll, on
                 <PublishedCell published={published} />
               </td>
               <td className="p-3 text-right">
-                <PublishCell published={published} id={item.id} busy={busy} onPublish={onPublish} />
+                <div className="flex justify-end gap-2">
+                  <CopyIdButton id={item.id} />
+                  <PublishCell published={published} id={item.id} busy={busy} onPublish={onPublish} />
+                </div>
               </td>
             </tr>
           );
@@ -416,7 +444,10 @@ function QotdTable({ items, drafts, selected, busy, onToggle, onToggleAll, onPub
                 <PublishedCell published={published} />
               </td>
               <td className="p-3 text-right">
-                <PublishCell published={published} id={item.id} busy={busy} onPublish={onPublish} />
+                <div className="flex justify-end gap-2">
+                  <CopyIdButton id={item.id} />
+                  <PublishCell published={published} id={item.id} busy={busy} onPublish={onPublish} />
+                </div>
               </td>
             </tr>
           );
