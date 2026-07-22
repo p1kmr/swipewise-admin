@@ -9,6 +9,8 @@ import {
   Power,
   RefreshCw,
   Plus,
+  Sparkles,
+  Languages,
 } from "lucide-react";
 import {
   listConfigs,
@@ -18,14 +20,16 @@ import {
 } from "../services/configService.js";
 import { importJurisdictionData } from "../services/jurisdictionDataService.js";
 import { importJurisdictionRegistry } from "../services/jurisdictionRegistryService.js";
-import { getCoverageReport, importTranslations } from "../services/i18nService.js";
+import { getCoverageReport, importTranslations, translateWithAI } from "../services/i18nService.js";
+import { listContent } from "../services/contentService.js";
+import { listQotd } from "../services/qotdService.js";
 import { downloadJurisdictionDataTemplate } from "../utils/jurisdictionDataTemplate.js";
 import { parseJurisdictionDataFile } from "../utils/parseJurisdictionData.js";
 import { downloadRegistryTemplate } from "../utils/registryTemplate.js";
 import { parseRegistryFile } from "../utils/parseRegistry.js";
 import { downloadTranslationTemplate } from "../utils/translationTemplate.js";
 import { parseTranslationFile } from "../utils/parseTranslations.js";
-import { WISEBOT_AVATAR_OPTIONS } from "../constants/enums.js";
+import { WISEBOT_AVATAR_OPTIONS, LANGUAGE_CODES } from "../constants/enums.js";
 
 const TABS = [
   { id: "config", label: "Config" },
@@ -123,6 +127,205 @@ function UploadPanel({
           Import valid rows
         </button>
       </div>
+    </div>
+  );
+}
+
+const AI_CONTENT_TYPES = [
+  { value: "content", label: "Questions" },
+  { value: "qotd", label: "QOTD" },
+];
+
+// AI translation — pick documents from a list and translate them; no source_id, no Excel.
+function AiTranslatePanel() {
+  const [contentType, setContentType] = useState("content");
+  const [sourceLang, setSourceLang] = useState("en");
+  const [targetLang, setTargetLang] = useState("hi");
+  const [items, setItems] = useState([]);
+  const [selected, setSelected] = useState(() => new Set());
+  const [loading, setLoading] = useState(false);
+  const [translating, setTranslating] = useState(false);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState("");
+
+  async function load() {
+    setLoading(true);
+    setError("");
+    setResult(null);
+    setSelected(new Set());
+    try {
+      const all = contentType === "content" ? await listContent() : await listQotd();
+      setItems(all.filter((i) => (i.language_code || "en") === sourceLang));
+    } catch (err) {
+      setError(err.message || "Could not load documents.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function toggle(id) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    setSelected((prev) => (prev.size === items.length ? new Set() : new Set(items.map((i) => i.id))));
+  }
+
+  async function translate() {
+    if (selected.size === 0) return;
+    if (sourceLang === targetLang) {
+      setError("Source and target languages must differ.");
+      return;
+    }
+    setTranslating(true);
+    setError("");
+    setResult(null);
+    try {
+      const res = await translateWithAI({
+        content_type: contentType,
+        ids: [...selected],
+        target_language: targetLang,
+      });
+      setResult(res);
+      setSelected(new Set());
+    } catch (err) {
+      setError(err.message || "Translation failed.");
+    } finally {
+      setTranslating(false);
+    }
+  }
+
+  const labelOf = (i) => (contentType === "content" ? i.question_text : i.question_description) || "(untitled)";
+
+  return (
+    <div className="card-surface space-y-4 p-5">
+      <div>
+        <h3 className="flex items-center gap-2 font-semibold">
+          <Sparkles size={18} className="text-primary" /> Translate with AI
+        </h3>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          Pick documents and a target language — Gemini creates translated Draft copies for you to
+          review. No IDs or spreadsheets needed.
+        </p>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <label className="block text-sm">
+          <span className="text-gray-600 dark:text-gray-400">Type</span>
+          <select
+            value={contentType}
+            onChange={(e) => {
+              setContentType(e.target.value);
+              setItems([]);
+              setSelected(new Set());
+            }}
+            className="mt-1 w-full rounded-lg border border-surface-light-border px-3 py-2 dark:border-surface-dark-border dark:bg-surface-dark-bg"
+          >
+            {AI_CONTENT_TYPES.map((t) => (
+              <option key={t.value} value={t.value}>
+                {t.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="block text-sm">
+          <span className="text-gray-600 dark:text-gray-400">From language</span>
+          <select
+            value={sourceLang}
+            onChange={(e) => setSourceLang(e.target.value)}
+            className="mt-1 w-full rounded-lg border border-surface-light-border px-3 py-2 dark:border-surface-dark-border dark:bg-surface-dark-bg"
+          >
+            {LANGUAGE_CODES.map((l) => (
+              <option key={l} value={l}>
+                {l}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="block text-sm">
+          <span className="text-gray-600 dark:text-gray-400">To language</span>
+          <select
+            value={targetLang}
+            onChange={(e) => setTargetLang(e.target.value)}
+            className="mt-1 w-full rounded-lg border border-surface-light-border px-3 py-2 dark:border-surface-dark-border dark:bg-surface-dark-bg"
+          >
+            {LANGUAGE_CODES.map((l) => (
+              <option key={l} value={l}>
+                {l}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="button" onClick={load} disabled={loading} className="btn-primary">
+          {loading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+          Load {AI_CONTENT_TYPES.find((t) => t.value === contentType)?.label} in {sourceLang}
+        </button>
+        {items.length > 0 ? (
+          <button
+            type="button"
+            onClick={toggleAll}
+            className="rounded-lg border border-surface-light-border px-3 py-2 text-sm dark:border-surface-dark-border"
+          >
+            {selected.size === items.length ? "Clear all" : "Select all"}
+          </button>
+        ) : null}
+      </div>
+
+      {error ? (
+        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-verdict-dont_trust dark:bg-red-950/30">
+          {error}
+        </p>
+      ) : null}
+      {result ? (
+        <p className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-sm text-verdict-trust dark:bg-green-950/30">
+          <CheckCircle2 size={16} /> Created {result.created} translated Draft
+          {result.created === 1 ? "" : "s"} in {targetLang}
+          {result.skipped?.length ? ` · ${result.skipped.length} skipped` : ""}. Review &amp; publish
+          them on the Review page.
+        </p>
+      ) : null}
+
+      {items.length > 0 ? (
+        <div className="max-h-72 overflow-y-auto rounded-lg border border-surface-light-border dark:border-surface-dark-border">
+          {items.map((item) => (
+            <label
+              key={item.id}
+              className="flex cursor-pointer items-start gap-3 border-b border-surface-light-border px-3 py-2 text-sm last:border-0 hover:bg-gray-50 dark:border-surface-dark-border dark:hover:bg-surface-dark-bg"
+            >
+              <input
+                type="checkbox"
+                checked={selected.has(item.id)}
+                onChange={() => toggle(item.id)}
+                className="mt-1"
+              />
+              <span className="min-w-0">
+                <span className="block truncate">{labelOf(item)}</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  {item.jurisdiction} · {item.language_code} · {item.status || "Draft"}
+                </span>
+              </span>
+            </label>
+          ))}
+        </div>
+      ) : null}
+
+      <button
+        type="button"
+        onClick={translate}
+        disabled={translating || selected.size === 0}
+        className="btn-primary"
+      >
+        {translating ? <Loader2 size={16} className="animate-spin" /> : <Languages size={16} />}
+        Translate {selected.size} with AI → {targetLang}
+      </button>
     </div>
   );
 }
@@ -647,6 +850,14 @@ export default function JurisdictionsPage() {
 
       {tab === "translations" ? (
         <div className="space-y-6">
+          <AiTranslatePanel />
+
+          <div className="flex items-center gap-3">
+            <div className="h-px flex-1 bg-surface-light-border dark:bg-surface-dark-border" />
+            <span className="text-xs uppercase tracking-wide text-gray-400">or import a sheet</span>
+            <div className="h-px flex-1 bg-surface-light-border dark:bg-surface-dark-border" />
+          </div>
+
           <UploadPanel
             title="Translation import"
             description="Upload a Google Sheet export to create translated draft copies of existing content, scripts, or QOTD rows. Each row's source_id is the MongoDB id of the document being translated — copy it from the ID button on the Review & Publish page."

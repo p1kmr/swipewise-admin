@@ -24,7 +24,7 @@ import {
   importJurisdictionRegistry,
   listJurisdictionRegistry,
 } from "./services/jurisdictionRegistry.js";
-import { getCoverageReport, importTranslations } from "./services/i18n.js";
+import { getCoverageReport, importTranslations, translateWithAI } from "./services/i18n.js";
 import { writeGenerationLineage } from "./services/lineage.js";
 import { requireAuth } from "./auth.js";
 
@@ -220,6 +220,18 @@ export async function dispatchRoute(req, res, segments) {
           return res.status(201).json(await importTranslations(rows));
         }
         return methodNotAllowed(res, ["GET", "POST"]);
+      }
+
+      case "i18n/translate": {
+        const user = requireAuth(req, res);
+        if (!user) return;
+        if (req.method !== "POST") return methodNotAllowed(res, ["POST"]);
+        const { content_type, ids, target_language } = req.body || {};
+        if (!Array.isArray(ids) || ids.length === 0) {
+          return sendError(res, 400, "ids array is required.");
+        }
+        if (!target_language) return sendError(res, 400, "target_language is required.");
+        return res.status(200).json(await translateWithAI({ content_type, ids, target_language }));
       }
 
       case "generation/lineage": {

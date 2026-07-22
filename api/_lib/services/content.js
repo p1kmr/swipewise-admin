@@ -24,7 +24,7 @@ export async function listContent() {
 }
 
 // Atomic per-jurisdiction sequence → Question_ID like "SW-IN-000123".
-async function getNextQuestionId(db, jurisdiction) {
+export async function getNextQuestionId(db, jurisdiction) {
   const code = String(jurisdiction || "GLOBAL").trim().toUpperCase() || "GLOBAL";
   const result = await db.collection(COLLECTIONS.COUNTERS).findOneAndUpdate(
     { _id: `question:${code}` },
