@@ -5,7 +5,7 @@ import { ROUTES } from "../constants/routes.js";
 
 const navItems = [
   { to: ROUTES.DASHBOARD, label: "Dashboard", icon: LayoutDashboard },
-  { to: ROUTES.UPLOAD, label: "Upload Cards", icon: Upload },
+  { to: ROUTES.UPLOAD, label: "Upload Questions", icon: Upload },
   { to: ROUTES.GENERATE, label: "Generate with AI", icon: Sparkles },
   { to: ROUTES.SCRIPTS, label: "Scripts", icon: MessageSquare },
   { to: ROUTES.QOTD, label: "QOTD", icon: Calendar },

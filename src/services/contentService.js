@@ -1,24 +1,28 @@
 import { apiFetch } from "./apiClient.js";
 
-export async function importCards(cards) {
-  const { saved } = await apiFetch("/api/content", {
+// Import parsed questions. Returns { saved, inserted, updated, ids }.
+export async function importQuestions(questions) {
+  return apiFetch("/api/content", {
     method: "POST",
-    body: JSON.stringify({ cards }),
+    body: JSON.stringify({ questions }),
   });
-  return saved;
 }
 
 export async function listContent() {
   return apiFetch("/api/content");
 }
 
-export async function publishCard(id) {
-  await publishCards([id]);
-}
-
-export async function publishCards(ids) {
+export async function publishQuestions(ids) {
   await apiFetch("/api/content/publish-batch", {
     method: "POST",
     body: JSON.stringify({ ids }),
+  });
+}
+
+// Set Draft / Inactive / Archived (Active is done via publishQuestions).
+export async function setQuestionStatus(ids, status) {
+  await apiFetch("/api/content/status", {
+    method: "POST",
+    body: JSON.stringify({ ids, status }),
   });
 }

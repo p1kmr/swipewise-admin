@@ -8,29 +8,37 @@ import {
   Trash2,
 } from "lucide-react";
 import { generateFromPdf, writeGenerationLineage } from "../services/generationService.js";
-import { importCards } from "../services/contentService.js";
-import { VERDICTS, VISUAL_TYPES, SKILLS } from "../constants/enums.js";
-
-const DIFFICULTIES = [1, 2, 3, 4, 5];
+import { importQuestions } from "../services/contentService.js";
+import {
+  JURISDICTION_CODES,
+  REGULATORS,
+  LANGUAGE_CODES,
+  MODULES,
+  DIFFICULTIES,
+  QUESTION_FORMATS,
+  MCQ_OPTION_KEYS,
+} from "../constants/enums.js";
 
 const defaultParams = {
   jurisdiction: "IN",
+  regulator: "SEBI",
   language_code: "en",
-  bucket: "",
+  module: "",
+  difficulty: "Beginner",
   count: 5,
-  difficulty_min: 1,
-  difficulty_max: 5,
 };
+
+const isMcq = (format) => format === "MCQ_Single" || format === "MCQ_Multi";
 
 export default function GeneratePage() {
   const inputRef = useRef(null);
   const [file, setFile] = useState(null);
   const [params, setParams] = useState(defaultParams);
-  const [skills, setSkills] = useState([]);
+  const [formats, setFormats] = useState(["Swipe_TrueFalse"]);
 
   const [stage, setStage] = useState("form"); // form | generating | review | importing
   const [drafts, setDrafts] = useState(null);
-  const [imported, setImported] = useState(0);
+  const [importResult, setImportResult] = useState(null);
   const [error, setError] = useState("");
 
   const busy = stage === "generating" || stage === "importing";
@@ -40,9 +48,9 @@ export default function GeneratePage() {
     setParams((p) => ({ ...p, [key]: value }));
   }
 
-  function toggleSkill(skill) {
-    setSkills((prev) =>
-      prev.includes(skill) ? prev.filter((s) => s !== skill) : [...prev, skill]
+  function toggleFormat(format) {
+    setFormats((prev) =>
+      prev.includes(format) ? prev.filter((f) => f !== format) : [...prev, format]
     );
   }
 
@@ -64,17 +72,17 @@ export default function GeneratePage() {
       return;
     }
     setError("");
-    setImported(0);
+    setImportResult(null);
     setDrafts(null);
 
     const genParams = {
       jurisdiction: params.jurisdiction,
+      regulator: params.regulator,
       language_code: params.language_code,
-      bucket: params.bucket,
+      module: params.module,
+      difficulty: params.difficulty,
       count: Number(params.count),
-      difficulty_min: Number(params.difficulty_min),
-      difficulty_max: Number(params.difficulty_max),
-      skills,
+      formats,
     };
 
     try {
@@ -82,7 +90,7 @@ export default function GeneratePage() {
       const { cards, prompt_summary } = await generateFromPdf(file, genParams);
 
       if (!cards?.length) {
-        throw new Error("The model returned no cards. Try a different PDF or a higher count.");
+        throw new Error("The model returned no questions. Try a different PDF or a higher count.");
       }
 
       await writeGenerationLineage({
@@ -106,8 +114,8 @@ export default function GeneratePage() {
     setError("");
     setStage("importing");
     try {
-      const n = await importCards(drafts);
-      setImported(n);
+      const res = await importQuestions(drafts);
+      setImportResult(res);
       setDrafts(null);
       setFile(null);
       if (inputRef.current) inputRef.current.value = "";
@@ -123,43 +131,87 @@ export default function GeneratePage() {
       <div>
         <h2 className="text-xl font-semibold">Generate with AI</h2>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Upload a source PDF and Gemini drafts swipe cards from it. You review and edit every
-          card before importing — nothing is saved or published automatically.
+          Upload a source PDF and Gemini drafts questions from it. You review and edit every
+          question before importing — nothing is saved or published automatically.
         </p>
       </div>
 
       {/* Params */}
       <div className="card-surface space-y-4 p-5">
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <label className="block text-sm">
             <span className="mb-1 block font-medium">Jurisdiction</span>
-            <input
+            <select
               className="input-field"
               value={params.jurisdiction}
               onChange={(e) => setParam("jurisdiction", e.target.value)}
-              placeholder="e.g. IN, EU, US"
-            />
+            >
+              {JURISDICTION_CODES.map((j) => (
+                <option key={j} value={j}>
+                  {j}
+                </option>
+              ))}
+            </select>
           </label>
           <label className="block text-sm">
-            <span className="mb-1 block font-medium">Language code</span>
-            <input
+            <span className="mb-1 block font-medium">Regulator</span>
+            <select
+              className="input-field"
+              value={params.regulator}
+              onChange={(e) => setParam("regulator", e.target.value)}
+            >
+              {REGULATORS.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium">Language</span>
+            <select
               className="input-field"
               value={params.language_code}
               onChange={(e) => setParam("language_code", e.target.value)}
-              placeholder="e.g. en, hi"
-            />
+            >
+              {LANGUAGE_CODES.map((l) => (
+                <option key={l} value={l}>
+                  {l}
+                </option>
+              ))}
+            </select>
           </label>
           <label className="block text-sm">
-            <span className="mb-1 block font-medium">Content bucket / theme</span>
-            <input
+            <span className="mb-1 block font-medium">Module</span>
+            <select
               className="input-field"
-              value={params.bucket}
-              onChange={(e) => setParam("bucket", e.target.value)}
-              placeholder="optional"
-            />
+              value={params.module}
+              onChange={(e) => setParam("module", e.target.value)}
+            >
+              <option value="">Any</option>
+              {MODULES.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
           </label>
           <label className="block text-sm">
-            <span className="mb-1 block font-medium">How many cards</span>
+            <span className="mb-1 block font-medium">Difficulty</span>
+            <select
+              className="input-field"
+              value={params.difficulty}
+              onChange={(e) => setParam("difficulty", e.target.value)}
+            >
+              {DIFFICULTIES.map((d) => (
+                <option key={d} value={d}>
+                  {d}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium">How many questions</span>
             <input
               type="number"
               min={1}
@@ -169,53 +221,25 @@ export default function GeneratePage() {
               onChange={(e) => setParam("count", e.target.value)}
             />
           </label>
-          <label className="block text-sm">
-            <span className="mb-1 block font-medium">Min difficulty</span>
-            <select
-              className="input-field"
-              value={params.difficulty_min}
-              onChange={(e) => setParam("difficulty_min", e.target.value)}
-            >
-              {DIFFICULTIES.map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block text-sm">
-            <span className="mb-1 block font-medium">Max difficulty</span>
-            <select
-              className="input-field"
-              value={params.difficulty_max}
-              onChange={(e) => setParam("difficulty_max", e.target.value)}
-            >
-              {DIFFICULTIES.map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
-            </select>
-          </label>
         </div>
 
         <div>
-          <span className="mb-2 block text-sm font-medium">Target skills (optional)</span>
+          <span className="mb-2 block text-sm font-medium">Question formats</span>
           <div className="flex flex-wrap gap-2">
-            {SKILLS.map((skill) => {
-              const active = skills.includes(skill);
+            {QUESTION_FORMATS.map((format) => {
+              const active = formats.includes(format);
               return (
                 <button
-                  key={skill}
+                  key={format}
                   type="button"
-                  onClick={() => toggleSkill(skill)}
+                  onClick={() => toggleFormat(format)}
                   className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
                     active
                       ? "border-primary bg-primary/10 text-primary"
                       : "border-surface-light-border text-gray-600 hover:border-primary dark:border-surface-dark-border dark:text-gray-300"
                   }`}
                 >
-                  {skill}
+                  {format}
                 </button>
               );
             })}
@@ -236,7 +260,7 @@ export default function GeneratePage() {
               onChange={(e) => {
                 setFile(e.target.files?.[0] || null);
                 setError("");
-                setImported(0);
+                setImportResult(null);
               }}
             />
             <FileText size={16} className="text-primary" />
@@ -246,7 +270,7 @@ export default function GeneratePage() {
           <button
             type="button"
             onClick={handleGenerate}
-            disabled={busy || !file}
+            disabled={busy || !file || formats.length === 0}
             className="btn-primary shrink-0"
           >
             {stage === "generating" ? (
@@ -273,10 +297,11 @@ export default function GeneratePage() {
         </p>
       ) : null}
 
-      {imported > 0 ? (
+      {importResult ? (
         <p className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-sm text-verdict-trust dark:bg-green-950/30">
-          <CheckCircle2 size={16} /> Imported {imported} card{imported === 1 ? "" : "s"} as drafts.
-          Head to Review &amp; Publish to make them live.
+          <CheckCircle2 size={16} /> Imported {importResult.inserted} new question
+          {importResult.inserted === 1 ? "" : "s"} as Draft. Head to Review &amp; Publish to make
+          them live.
         </p>
       ) : null}
 
@@ -318,11 +343,17 @@ export default function GeneratePage() {
 }
 
 function DraftCard({ draft, index, onChange, onRemove }) {
+  const mcq = isMcq(draft.question_format);
+
+  function setOption(key, value) {
+    onChange({ options: { ...(draft.options || {}), [key]: value } });
+  }
+
   return (
     <div className="card-surface space-y-4 p-5">
       <div className="flex items-center justify-between">
         <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-          Card {index + 1}
+          Question {index + 1}
         </span>
         <button
           type="button"
@@ -333,52 +364,116 @@ function DraftCard({ draft, index, onChange, onRemove }) {
         </button>
       </div>
 
-      <label className="block text-sm">
-        <span className="mb-1 block font-medium">Scenario</span>
-        <textarea
-          rows={3}
-          className="input-field resize-y"
-          value={draft.scenario_text}
-          onChange={(e) => onChange({ scenario_text: e.target.value })}
-        />
-      </label>
-
       <div className="grid gap-4 sm:grid-cols-3">
         <label className="block text-sm">
-          <span className="mb-1 block font-medium">Verdict</span>
+          <span className="mb-1 block font-medium">Format</span>
           <select
             className="input-field"
-            value={draft.verdict}
-            onChange={(e) => onChange({ verdict: e.target.value })}
+            value={draft.question_format}
+            onChange={(e) => onChange({ question_format: e.target.value })}
           >
-            <option value="">—</option>
-            {VERDICTS.map((v) => (
-              <option key={v} value={v}>
-                {v}
+            {QUESTION_FORMATS.map((f) => (
+              <option key={f} value={f}>
+                {f}
               </option>
             ))}
           </select>
         </label>
         <label className="block text-sm">
-          <span className="mb-1 block font-medium">Visual type</span>
+          <span className="mb-1 block font-medium">Module</span>
           <select
             className="input-field"
-            value={draft.visual_type}
-            onChange={(e) => onChange({ visual_type: e.target.value })}
+            value={draft.module}
+            onChange={(e) => onChange({ module: e.target.value })}
           >
-            {VISUAL_TYPES.map((v) => (
-              <option key={v} value={v}>
-                {v}
+            <option value="">—</option>
+            {MODULES.map((m) => (
+              <option key={m} value={m}>
+                {m}
               </option>
             ))}
           </select>
+        </label>
+        <label className="block text-sm">
+          <span className="mb-1 block font-medium">Category</span>
+          <input
+            className="input-field"
+            value={draft.category}
+            onChange={(e) => onChange({ category: e.target.value })}
+          />
+        </label>
+      </div>
+
+      <label className="block text-sm">
+        <span className="mb-1 block font-medium">Question text</span>
+        <textarea
+          rows={2}
+          className="input-field resize-y"
+          value={draft.question_text}
+          onChange={(e) => onChange({ question_text: e.target.value })}
+        />
+      </label>
+
+      <label className="block text-sm">
+        <span className="mb-1 block font-medium">Scenario context (optional)</span>
+        <textarea
+          rows={2}
+          className="input-field resize-y"
+          value={draft.scenario_context}
+          onChange={(e) => onChange({ scenario_context: e.target.value })}
+        />
+      </label>
+
+      {mcq ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {MCQ_OPTION_KEYS.map((key) => (
+            <label key={key} className="block text-sm">
+              <span className="mb-1 block font-medium">Option {key}</span>
+              <input
+                className="input-field"
+                value={draft.options?.[key] || ""}
+                onChange={(e) => setOption(key, e.target.value)}
+              />
+            </label>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <label className="block text-sm">
+          <span className="mb-1 block font-medium">Correct answer</span>
+          {mcq ? (
+            <input
+              className="input-field"
+              placeholder="e.g. B or A,C"
+              value={Array.isArray(draft.correct_answer) ? draft.correct_answer.join(",") : ""}
+              onChange={(e) =>
+                onChange({
+                  correct_answer: e.target.value
+                    .split(",")
+                    .map((s) => s.trim().toUpperCase())
+                    .filter(Boolean),
+                })
+              }
+            />
+          ) : (
+            <select
+              className="input-field"
+              value={typeof draft.correct_answer === "string" ? draft.correct_answer : ""}
+              onChange={(e) => onChange({ correct_answer: e.target.value })}
+            >
+              <option value="">—</option>
+              <option value="TRUE">TRUE (legitimate)</option>
+              <option value="FALSE">FALSE (red flag)</option>
+            </select>
+          )}
         </label>
         <label className="block text-sm">
           <span className="mb-1 block font-medium">Difficulty</span>
           <select
             className="input-field"
             value={draft.difficulty}
-            onChange={(e) => onChange({ difficulty: Number(e.target.value) })}
+            onChange={(e) => onChange({ difficulty: e.target.value })}
           >
             {DIFFICULTIES.map((d) => (
               <option key={d} value={d}>
@@ -390,56 +485,33 @@ function DraftCard({ draft, index, onChange, onRemove }) {
       </div>
 
       <label className="block text-sm">
-        <span className="mb-1 block font-medium">Explanation</span>
+        <span className="mb-1 block font-medium">Explanation feedback</span>
         <textarea
           rows={2}
           className="input-field resize-y"
-          value={draft.explanation}
-          onChange={(e) => onChange({ explanation: e.target.value })}
+          value={draft.explanation_feedback}
+          onChange={(e) => onChange({ explanation_feedback: e.target.value })}
         />
       </label>
 
       <label className="block text-sm">
-        <span className="mb-1 block font-medium">Red flags (separate with |)</span>
-        <input
-          className="input-field"
-          value={(draft.red_flags || []).join(" | ")}
-          onChange={(e) =>
-            onChange({
-              red_flags: e.target.value
-                .split("|")
-                .map((s) => s.trim())
-                .filter(Boolean),
-            })
-          }
+        <span className="mb-1 block font-medium">AI explainer context</span>
+        <textarea
+          rows={3}
+          className="input-field resize-y"
+          value={draft.ai_explainer_context}
+          onChange={(e) => onChange({ ai_explainer_context: e.target.value })}
         />
       </label>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="block text-sm">
-          <span className="mb-1 block font-medium">Action step</span>
-          <input
-            className="input-field"
-            value={draft.action_step}
-            onChange={(e) => onChange({ action_step: e.target.value })}
-          />
-        </label>
-        <label className="block text-sm">
-          <span className="mb-1 block font-medium">Skill tested</span>
-          <select
-            className="input-field"
-            value={draft.skill_tested}
-            onChange={(e) => onChange({ skill_tested: e.target.value })}
-          >
-            <option value="">—</option>
-            {SKILLS.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+      <label className="block text-sm">
+        <span className="mb-1 block font-medium">Regulatory reference (optional)</span>
+        <input
+          className="input-field"
+          value={draft.regulatory_reference}
+          onChange={(e) => onChange({ regulatory_reference: e.target.value })}
+        />
+      </label>
     </div>
   );
 }

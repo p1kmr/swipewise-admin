@@ -105,7 +105,7 @@ export async function importTranslations(rows) {
       continue;
     }
 
-    const { _id, approval, createdAt, ...rest } = source;
+    const { _id, approval, createdAt, question_id, ...rest } = source;
     let doc = {
       ...rest,
       language_code: target_language,
@@ -115,9 +115,12 @@ export async function importTranslations(rows) {
     };
 
     if (content_type === "content") {
-      if (row.scenario_text) doc.scenario_text = String(row.scenario_text).trim();
-      if (row.explanation) doc.explanation = String(row.explanation).trim();
-      if (row.action_step) doc.action_step = String(row.action_step).trim();
+      // translated copies are new Draft questions (own Question_ID assigned on next content import path is N/A;
+      // translations insert directly, so keep them Draft with no question_id — set by a later edit if needed).
+      doc.status = "Draft";
+      if (row.question_text) doc.question_text = String(row.question_text).trim();
+      if (row.explanation_feedback) doc.explanation_feedback = String(row.explanation_feedback).trim();
+      if (row.scenario_context) doc.scenario_context = String(row.scenario_context).trim();
     } else if (content_type === "script") {
       if (row.title) doc.title = String(row.title).trim();
       if (row.nodes_json) {

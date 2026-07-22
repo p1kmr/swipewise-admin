@@ -17,7 +17,7 @@ import { listConfigs } from "../services/configService.js";
 import { ROUTES } from "../constants/routes.js";
 
 const QUICK_LINKS = [
-  { to: ROUTES.UPLOAD, label: "Upload cards", icon: Upload },
+  { to: ROUTES.UPLOAD, label: "Upload questions", icon: Upload },
   { to: ROUTES.GENERATE, label: "Generate with AI", icon: Sparkles },
   { to: ROUTES.SCRIPTS, label: "Scripts", icon: MessageSquare },
   { to: ROUTES.QOTD, label: "QOTD", icon: Calendar },
@@ -45,7 +45,7 @@ export default function DashboardPage() {
         ]);
         if (cancelled) return;
         setStats({
-          cards: countDrafts(cards),
+          cards: cards.filter((c) => (c.status || "Draft") !== "Active").length,
           scripts: countDrafts(scripts),
           qotd: countDrafts(qotd),
           liveJurisdictions: configs.filter((c) => c.active).length,
@@ -79,7 +79,7 @@ export default function DashboardPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[
-            { label: "Card drafts", value: stats.cards },
+            { label: "Question drafts", value: stats.cards },
             { label: "Script drafts", value: stats.scripts },
             { label: "QOTD drafts", value: stats.qotd },
             { label: "Live jurisdictions", value: stats.liveJurisdictions },

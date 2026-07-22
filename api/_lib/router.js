@@ -5,7 +5,12 @@ import {
   methodNotAllowed,
   sendError,
 } from "./http.js";
-import { importContent, listContent, publishContentBatch } from "./services/content.js";
+import {
+  importContent,
+  listContent,
+  publishContentBatch,
+  setContentStatus,
+} from "./services/content.js";
 import { importScripts, listScripts, publishScriptsBatch } from "./services/scripts.js";
 import { importQotd, listQotd, publishQotdBatch } from "./services/qotd.js";
 import {
@@ -83,17 +88,29 @@ export async function dispatchRoute(req, res, segments) {
         if (!user) return;
         if (req.method === "GET") return res.status(200).json(await listContent());
         if (req.method === "POST") {
-          const { cards } = req.body || {};
-          if (!Array.isArray(cards) || cards.length === 0) {
-            return sendError(res, 400, "cards array is required.");
+          const { questions } = req.body || {};
+          if (!Array.isArray(questions) || questions.length === 0) {
+            return sendError(res, 400, "questions array is required.");
           }
-          return res.status(201).json(await importContent(cards));
+          return res.status(201).json(await importContent(questions));
         }
         return methodNotAllowed(res, ["GET", "POST"]);
       }
 
       case "content/publish-batch":
         return publishBatch(req, res, publishContentBatch, "Batch publish");
+
+      case "content/status": {
+        const user = requireAuth(req, res);
+        if (!user) return;
+        if (req.method !== "POST") return methodNotAllowed(res, ["POST"]);
+        const { ids, status } = req.body || {};
+        if (!Array.isArray(ids) || ids.length === 0) {
+          return sendError(res, 400, "ids array is required.");
+        }
+        if (!status) return sendError(res, 400, "status is required.");
+        return res.status(200).json(await setContentStatus(ids, status));
+      }
 
       case "scripts": {
         const user = requireAuth(req, res);

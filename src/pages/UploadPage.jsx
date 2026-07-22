@@ -7,9 +7,9 @@ import {
   AlertTriangle,
   Loader2,
 } from "lucide-react";
-import { downloadCardTemplate } from "../utils/excelTemplate.js";
-import { parseCardsFile } from "../utils/parseCards.js";
-import { importCards } from "../services/contentService.js";
+import { downloadQuestionTemplate } from "../utils/excelTemplate.js";
+import { parseQuestionsFile } from "../utils/parseQuestions.js";
+import { importQuestions } from "../services/contentService.js";
 
 export default function UploadPage() {
   const inputRef = useRef(null);
@@ -17,19 +17,19 @@ export default function UploadPage() {
   const [parsing, setParsing] = useState(false);
   const [result, setResult] = useState(null); // { valid, skipped, total }
   const [importing, setImporting] = useState(false);
-  const [imported, setImported] = useState(0);
+  const [importResult, setImportResult] = useState(null); // { saved, inserted, updated }
   const [error, setError] = useState("");
 
   async function handleFile(event) {
     const file = event.target.files?.[0];
     if (!file) return;
     setError("");
-    setImported(0);
+    setImportResult(null);
     setResult(null);
     setFileName(file.name);
     setParsing(true);
     try {
-      setResult(await parseCardsFile(file));
+      setResult(await parseQuestionsFile(file));
     } catch (err) {
       setError(err.message || "Could not read that file.");
     } finally {
@@ -42,8 +42,8 @@ export default function UploadPage() {
     setImporting(true);
     setError("");
     try {
-      const count = await importCards(result.valid);
-      setImported(count);
+      const res = await importQuestions(result.valid);
+      setImportResult(res);
       setResult(null);
       setFileName("");
       if (inputRef.current) inputRef.current.value = "";
@@ -57,10 +57,11 @@ export default function UploadPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
-        <h2 className="text-xl font-semibold">Upload swipe cards</h2>
+        <h2 className="text-xl font-semibold">Upload questions</h2>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Download the template, fill it in Excel, then upload. Rows are saved as drafts —
-          nothing goes live until you publish it on the Review page.
+          Download the template, fill the Questions sheet, then upload. Rows are saved as
+          Draft — nothing goes live until you publish it on the Review page. Re-uploading a
+          row with its Question_ID updates that question.
         </p>
       </div>
 
@@ -72,11 +73,11 @@ export default function UploadPage() {
             <div>
               <p className="font-medium">1. Download the template</p>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Excel with the exact columns and one example row.
+                Excel with README, Questions (26 columns + samples), and Lookup_Values.
               </p>
             </div>
           </div>
-          <button type="button" onClick={downloadCardTemplate} className="btn-primary shrink-0">
+          <button type="button" onClick={downloadQuestionTemplate} className="btn-primary shrink-0">
             <Download size={16} /> Template
           </button>
         </div>
@@ -110,10 +111,10 @@ export default function UploadPage() {
         </p>
       ) : null}
 
-      {imported > 0 ? (
+      {importResult ? (
         <p className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-sm text-verdict-trust dark:bg-green-950/30">
-          <CheckCircle2 size={16} /> Imported {imported} card{imported === 1 ? "" : "s"} as
-          drafts. Head to Review &amp; Publish to make them live.
+          <CheckCircle2 size={16} /> {importResult.inserted} new · {importResult.updated} updated
+          — saved as Draft. Head to Review &amp; Publish to make them live.
         </p>
       ) : null}
 
@@ -137,7 +138,7 @@ export default function UploadPage() {
               className="btn-primary ml-auto"
             >
               {importing ? <Loader2 size={16} className="animate-spin" /> : null}
-              Import {result.valid.length} card{result.valid.length === 1 ? "" : "s"}
+              Import {result.valid.length} question{result.valid.length === 1 ? "" : "s"}
             </button>
           </div>
 
