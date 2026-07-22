@@ -10,6 +10,7 @@ import {
   QUESTION_REQUIRED_COLUMNS,
   MCQ_OPTION_KEYS,
 } from "../constants/enums.js";
+import { assertExpectedTemplate } from "./detectTemplate.js";
 
 // Enum columns that must match a Lookup_Values entry (README C17). Category is free text.
 const ENUM_COLUMNS = {
@@ -103,6 +104,7 @@ function resolveAnswer(format, correctRaw, options) {
 export async function parseQuestionsFile(file) {
   const buffer = await file.arrayBuffer();
   const workbook = XLSX.read(buffer, { type: "array" });
+  assertExpectedTemplate(workbook, "questions");
   // The template has README / Questions / Lookup_Values — parse the Questions sheet.
   const sheetName = workbook.SheetNames.includes("Questions")
     ? "Questions"

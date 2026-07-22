@@ -649,7 +649,7 @@ export default function JurisdictionsPage() {
         <div className="space-y-6">
           <UploadPanel
             title="Translation import"
-            description="Upload a Google Sheet export to create translated draft content, scripts, or QOTD rows."
+            description="Upload a Google Sheet export to create translated draft copies of existing content, scripts, or QOTD rows. Each row's source_id is the MongoDB id of the document being translated — copy it from the ID button on the Review & Publish page."
             templateLabel="Sheet with content_type, source_id, target_language, and translated fields."
             onDownloadTemplate={downloadTranslationTemplate}
             onImport={handleTranslationImport}
