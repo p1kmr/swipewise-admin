@@ -62,6 +62,20 @@ function readFileAsBase64(file) {
   });
 }
 
+export async function publishQotd(id) {
+  return apiFetch("/api/content/qotd/publish", {
+    method: "POST",
+    body: JSON.stringify({ id }),
+  });
+}
+
+export async function unpublishQotd(id) {
+  return apiFetch("/api/content/qotd/unpublish", {
+    method: "POST",
+    body: JSON.stringify({ id }),
+  });
+}
+
 // Generate draft questions from a source PDF via the LLM. Returns { cards, model, prompt_summary }.
 export async function generateFromPdf(file, params) {
   const pdfBase64 = await readFileAsBase64(file);

@@ -12,6 +12,7 @@ import {
   Loader2,
   RefreshCw,
   FileText,
+  Sun,
 } from "lucide-react";
 import {
   listContent,
@@ -23,6 +24,8 @@ import {
   clearAllQuestions,
   aiEditQuestion,
   generateFromPdf,
+  publishQotd,
+  unpublishQotd,
 } from "../services/contentService.js";
 import { downloadQuestionTemplate } from "../utils/excelTemplate.js";
 import { parseQuestionsFile } from "../utils/parseQuestions.js";
@@ -59,6 +62,7 @@ function emptyForm() {
     effective_date: "",
     expiry_date: "",
     reviewer: "",
+    qotd_tagged: false,
   };
 }
 
@@ -66,6 +70,7 @@ function toForm(q) {
   return {
     ...emptyForm(),
     ...q,
+    qotd_tagged: q.qotd?.published === true || q.qotd?.marked === true,
     options: {
       A: q.options?.A || "",
       B: q.options?.B || "",
@@ -137,16 +142,18 @@ export default function QuestionsDashboard() {
   const [generating, setGenerating] = useState(false);
   const uploadRef = useRef(null);
   const [uploading, setUploading] = useState(false);
+  // Local QOTD pick per jurisdiction — no API call until Publish QOTD.
+  const [pendingQotdByJurisdiction, setPendingQotdByJurisdiction] = useState({});
 
-  async function refresh() {
-    setLoading(true);
+  async function refresh(silent = false) {
+    if (!silent) setLoading(true);
     setError("");
     try {
       setItems(await listContent());
     } catch (err) {
       setError(err.message || "Could not load questions.");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }
 
@@ -208,13 +215,13 @@ export default function QuestionsDashboard() {
     }
   }
 
-  async function rowAction(id, fn, msg) {
+  async function rowAction(id, fn, msg, { silent = false } = {}) {
     setBusyId(id);
     setError("");
     try {
       await fn();
       if (msg) flash(msg);
-      await refresh();
+      await refresh(silent);
     } catch (err) {
       setError(err.message || "Action failed.");
     } finally {
@@ -222,12 +229,42 @@ export default function QuestionsDashboard() {
     }
   }
 
-  const publish = (it) => rowAction(it.id, () => publishQuestions([it.id]), "Published.");
+  const publish = (it, pendingSelected) => {
+    const jurisdiction = String(it.jurisdiction || "GLOBAL").toUpperCase();
+    if (pendingSelected) {
+      rowAction(
+        it.id,
+        async () => {
+          await publishQotd(it.id);
+          setPendingQotdByJurisdiction((prev) => {
+            if (prev[jurisdiction] !== it.id) return prev;
+            const next = { ...prev };
+            delete next[jurisdiction];
+            return next;
+          });
+        },
+        "Published as Question of the Day.",
+        { silent: true }
+      );
+      return;
+    }
+    rowAction(it.id, () => publishQuestions([it.id]), "Published.");
+  };
   const unpublish = (it) => rowAction(it.id, () => setQuestionStatus([it.id], "Draft"), "Moved to Draft.");
   const remove = (it) => {
     if (!window.confirm("Delete this question permanently?")) return;
     rowAction(it.id, () => deleteQuestion(it.id), "Deleted.");
   };
+
+  function setQotdPending(mongoId, jurisdiction, tagged) {
+    const code = String(jurisdiction || "GLOBAL").toUpperCase();
+    setPendingQotdByJurisdiction((prev) => {
+      const next = { ...prev };
+      if (tagged && mongoId) next[code] = mongoId;
+      else if (next[code] === mongoId) delete next[code];
+      return next;
+    });
+  }
 
   async function handleClearAll() {
     if (!window.confirm("Delete ALL questions and test data? This cannot be undone.")) return;
@@ -236,6 +273,7 @@ export default function QuestionsDashboard() {
     try {
       const res = await clearAllQuestions();
       flash(`Cleared all test data (${res.total} document${res.total === 1 ? "" : "s"}).`);
+      setPendingQotdByJurisdiction({});
       await refresh();
     } catch (err) {
       setError(err.message || "Clear failed.");
@@ -244,16 +282,27 @@ export default function QuestionsDashboard() {
     }
   }
 
-  async function saveDrawer(payload) {
+  async function saveDrawer(payload, qotdTagged) {
+    const jurisdiction = String(payload.jurisdiction || "GLOBAL").toUpperCase();
+    let mongoId;
+
     if (editing.mode === "new") {
-      await importQuestions([{ ...payload, question_id: null }]);
+      const res = await importQuestions([{ ...payload, question_id: null }]);
+      const list = await listContent();
+      mongoId = list.find((q) => res.ids?.includes(q.question_id))?.id;
       flash("Question created as Draft.");
     } else {
-      await updateQuestion(editing.question.id, payload);
+      mongoId = editing.question.id;
+      if (editing.question.qotd?.published && !qotdTagged) {
+        await unpublishQotd(mongoId);
+      }
+      await updateQuestion(mongoId, payload);
       flash("Question saved.");
     }
+
+    setQotdPending(mongoId, jurisdiction, qotdTagged);
     setEditing(null);
-    await refresh();
+    await refresh(true);
   }
 
   return (
@@ -262,7 +311,7 @@ export default function QuestionsDashboard() {
         <div>
           <h2 className="text-xl font-semibold">Questions</h2>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            {filtered.length} shown · {items.length} total
+            {filtered.length} shown · {items.length} total · Set QOTD in add/edit, then Publish to push live
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -342,23 +391,39 @@ export default function QuestionsDashboard() {
         </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map((it) => (
+          {filtered.map((it) => {
+            const jurisdiction = String(it.jurisdiction || "GLOBAL").toUpperCase();
+            const pendingSelected = pendingQotdByJurisdiction[jurisdiction] === it.id;
+            return (
             <QuestionRow
               key={it.id}
               item={it}
               busy={busyId === it.id}
+              pendingSelected={pendingSelected}
               onEdit={() => setEditing({ mode: "edit", question: it })}
-              onPublish={() => publish(it)}
+              onPublish={() => publish(it, pendingSelected)}
               onUnpublish={() => unpublish(it)}
               onDelete={() => remove(it)}
             />
-          ))}
+            );
+          })}
         </div>
       )}
 
       {editing ? (
         <EditDrawer
-          initial={editing.mode === "edit" ? toForm(editing.question) : emptyForm()}
+          initial={
+            editing.mode === "edit"
+              ? {
+                  ...toForm(editing.question),
+                  qotd_tagged:
+                    editing.question.qotd?.published === true ||
+                    pendingQotdByJurisdiction[
+                      String(editing.question.jurisdiction || "GLOBAL").toUpperCase()
+                    ] === editing.question.id,
+                }
+              : emptyForm()
+          }
           mode={editing.mode}
           onClose={() => setEditing(null)}
           onSave={saveDrawer}
@@ -547,8 +612,35 @@ function answerLabel(it) {
   return it.correct_answer || "—";
 }
 
-function QuestionRow({ item, busy, onEdit, onPublish, onUnpublish, onDelete }) {
+function QotdBadge({ qotd, pendingSelected }) {
+  if (qotd?.published) {
+    return (
+      <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+        <Sun size={11} /> Live QOTD
+      </span>
+    );
+  }
+  if (pendingSelected) {
+    return (
+      <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-950/20 dark:text-amber-300">
+        <Sun size={11} /> QOTD
+      </span>
+    );
+  }
+  return null;
+}
+
+function QuestionRow({
+  item,
+  busy,
+  pendingSelected,
+  onEdit,
+  onPublish,
+  onUnpublish,
+  onDelete,
+}) {
   const active = (item.status || "Draft") === "Active";
+  const showPublish = !active || pendingSelected;
   return (
     <div className="card-surface p-3">
       <div className="flex items-start justify-between gap-3">
@@ -556,6 +648,7 @@ function QuestionRow({ item, busy, onEdit, onPublish, onUnpublish, onDelete }) {
           <p className="text-sm font-medium">{item.question_text || "(no text)"}</p>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
             <StatusBadge status={item.status || "Draft"} />
+            <QotdBadge qotd={item.qotd} pendingSelected={pendingSelected} />
             <span className="rounded-full bg-gray-100 px-2 py-0.5 dark:bg-gray-800">{item.question_format}</span>
             <span>{item.jurisdiction}</span>
             <span>· {item.language_code}</span>
@@ -565,12 +658,14 @@ function QuestionRow({ item, busy, onEdit, onPublish, onUnpublish, onDelete }) {
             {item.question_id ? <span className="font-mono">· {item.question_id}</span> : null}
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-1">
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
           {busy ? <Loader2 size={16} className="animate-spin text-gray-400" /> : null}
-          {active ? (
-            <IconBtn title="Unpublish" onClick={onUnpublish} disabled={busy}>Draft</IconBtn>
+          {showPublish ? (
+            <IconBtn title={pendingSelected ? "Publish question and push as QOTD" : "Publish"} onClick={onPublish} disabled={busy} primary>
+              Publish
+            </IconBtn>
           ) : (
-            <IconBtn title="Publish" onClick={onPublish} disabled={busy} primary>Publish</IconBtn>
+            <IconBtn title="Unpublish" onClick={onUnpublish} disabled={busy}>Draft</IconBtn>
           )}
           <IconBtn title="Edit" onClick={onEdit} disabled={busy}><Pencil size={14} /></IconBtn>
           <IconBtn title="Delete" onClick={onDelete} disabled={busy} danger><Trash2 size={14} /></IconBtn>
@@ -646,7 +741,7 @@ function EditDrawer({ initial, mode, onClose, onSave }) {
     setSaving(true);
     setError("");
     try {
-      await onSave(formToPayload(form));
+      await onSave(formToPayload(form), !!form.qotd_tagged);
     } catch (err) {
       setError(err.message || "Save failed.");
       setSaving(false);
@@ -745,6 +840,29 @@ function EditDrawer({ initial, mode, onClose, onSave }) {
             <Field label="Media URL"><input className="input-field" value={form.media_url} onChange={(e) => set({ media_url: e.target.value })} /></Field>
             <Field label="Reviewer"><input className="input-field" value={form.reviewer} onChange={(e) => set({ reviewer: e.target.value })} /></Field>
           </div>
+
+          <label
+            className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition ${
+              form.qotd_tagged
+                ? "border-amber-400 bg-amber-500/10 dark:border-amber-600 dark:bg-amber-500/15"
+                : "border-surface-light-border dark:border-surface-dark-border"
+            }`}
+          >
+            <input
+              type="checkbox"
+              checked={!!form.qotd_tagged}
+              onChange={(e) => set({ qotd_tagged: e.target.checked })}
+              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-amber-500 focus:ring-amber-400"
+            />
+            <span className="text-sm">
+              <span className="flex items-center gap-1.5 font-medium text-amber-700 dark:text-amber-300">
+                <Sun size={15} /> Question of the Day
+              </span>
+              <span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">
+                Tag this question as QOTD. Use Publish on the list to push it live.
+              </span>
+            </span>
+          </label>
 
           {error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-verdict-dont_trust dark:bg-red-950/30">{error}</p> : null}
         </div>

@@ -12,6 +12,7 @@ import {
 } from "./services/content.js";
 import { reviseQuestion } from "./gemini.js";
 import { requireAuth } from "./auth.js";
+import { getLiveQotd, publishQotd, unpublishQotd } from "./services/qotd.js";
 
 function routeKey(segments) {
   return segments.join("/");
@@ -113,6 +114,25 @@ export async function dispatchRoute(req, res, segments) {
         }
         if (!status) return sendError(res, 400, "status is required.");
         return res.status(200).json(await setContentStatus(ids, status));
+      }
+
+      case "content/qotd/publish":
+      case "content/qotd/unpublish": {
+        const user = requireAuth(req, res);
+        if (!user) return;
+        if (req.method !== "POST") return methodNotAllowed(res, ["POST"]);
+        const { id } = req.body || {};
+        if (!id || !ObjectId.isValid(id)) return sendError(res, 400, "valid id is required.");
+        const action = segments[2];
+        if (action === "publish") return res.status(200).json(await publishQotd(id));
+        if (action === "unpublish") return res.status(200).json(await unpublishQotd(id));
+        return sendError(res, 404, "Not found.");
+      }
+
+      case "qotd": {
+        if (req.method !== "GET") return methodNotAllowed(res, ["GET"]);
+        const jurisdiction = req.query?.jurisdiction || "IN";
+        return res.status(200).json({ qotd: await getLiveQotd(jurisdiction) });
       }
 
       default: {
