@@ -4,14 +4,8 @@ import { ThemeProvider } from "./context/ThemeContext.jsx";
 import Layout from "./components/Layout.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import { ROUTES } from "./constants/routes.js";
-import DashboardPage from "./pages/DashboardPage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
-import UploadPage from "./pages/UploadPage.jsx";
-import GeneratePage from "./pages/GeneratePage.jsx";
-import ScriptsPage from "./pages/ScriptsPage.jsx";
-import QotdPage from "./pages/QotdPage.jsx";
-import JurisdictionsPage from "./pages/JurisdictionsPage.jsx";
-import ReviewPage from "./pages/ReviewPage.jsx";
+import QuestionsDashboard from "./pages/QuestionsDashboard.jsx";
 
 export default function App() {
   return (
@@ -22,13 +16,7 @@ export default function App() {
             <Route path={ROUTES.LOGIN} element={<LoginPage />} />
             <Route element={<ProtectedRoute />}>
               <Route element={<Layout />}>
-                <Route path={ROUTES.DASHBOARD} element={<DashboardPage />} />
-                <Route path={ROUTES.UPLOAD} element={<UploadPage />} />
-                <Route path={ROUTES.GENERATE} element={<GeneratePage />} />
-                <Route path={ROUTES.SCRIPTS} element={<ScriptsPage />} />
-                <Route path={ROUTES.QOTD} element={<QotdPage />} />
-                <Route path={ROUTES.JURISDICTIONS} element={<JurisdictionsPage />} />
-                <Route path={ROUTES.REVIEW} element={<ReviewPage />} />
+                <Route path={ROUTES.DASHBOARD} element={<QuestionsDashboard />} />
               </Route>
             </Route>
             <Route path="*" element={<Navigate to={ROUTES.DASHBOARD} replace />} />
