@@ -42,10 +42,11 @@ its `Questions` sheet has **21 columns** and drops `Regulator`, `Question_ID`, `
 - Update `docs/PROJECT_PLAN.md` + SOW to the single-dashboard model; delete/supersede `plan/`.
 - **Exit check:** `npm run build` clean; only Login + dashboard remain; 2 serverless functions.
 
-## Phase 5 — Deferred: bulk generation from PDF / URL
-- Re-wire `api/generate-from-pdf.js` into the dashboard; add website-URL-as-source (server fetches
-  the URL → LLM → draft rows appended for review). **Not built this iteration** — the backend is
-  kept in place, unwired.
+## Phase 5 — Generate from PDF ✅ (URL dropped)
+- `api/generate-from-pdf.js` + `gemini.generateCardsFromPdf` realigned to the 21-col schema and
+  **wired into the dashboard**: a "Generate from PDF" modal (params + PDF → LLM drafts → import as
+  Draft → review/publish from the list).
+- **Website-URL-as-source is out of scope** per owner: supported inputs are **Excel + PDF only**.
 
 ---
 

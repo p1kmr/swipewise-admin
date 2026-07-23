@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   Loader2,
   RefreshCw,
+  FileText,
 } from "lucide-react";
 import {
   listContent,
@@ -21,6 +22,7 @@ import {
   deleteQuestion,
   clearAllQuestions,
   aiEditQuestion,
+  generateFromPdf,
 } from "../services/contentService.js";
 import { downloadQuestionTemplate } from "../utils/excelTemplate.js";
 import { parseQuestionsFile } from "../utils/parseQuestions.js";
@@ -132,6 +134,7 @@ export default function QuestionsDashboard() {
   const [formatFilter, setFormatFilter] = useState("All");
 
   const [editing, setEditing] = useState(null); // { mode: 'new'|'edit', question } or null
+  const [generating, setGenerating] = useState(false);
   const uploadRef = useRef(null);
   const [uploading, setUploading] = useState(false);
 
@@ -275,6 +278,13 @@ export default function QuestionsDashboard() {
             {uploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />} Upload Excel
           </button>
           <input ref={uploadRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleUpload} />
+          <button
+            type="button"
+            onClick={() => setGenerating(true)}
+            className="inline-flex items-center gap-2 rounded-lg border border-surface-light-border px-3 py-2 text-sm dark:border-surface-dark-border"
+          >
+            <FileText size={16} /> Generate from PDF
+          </button>
           <button type="button" onClick={() => setEditing({ mode: "new" })} className="btn-primary">
             <Plus size={16} /> New
           </button>
@@ -354,6 +364,156 @@ export default function QuestionsDashboard() {
           onSave={saveDrawer}
         />
       ) : null}
+
+      {generating ? (
+        <GeneratePdfModal
+          onClose={() => setGenerating(false)}
+          onImported={async (n) => {
+            setGenerating(false);
+            flash(`Imported ${n} generated question${n === 1 ? "" : "s"} as Draft.`);
+            await refresh();
+          }}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+const MAX_PDF_BYTES = 4 * 1024 * 1024;
+
+function GeneratePdfModal({ onClose, onImported }) {
+  const [params, setParams] = useState({
+    jurisdiction: "IN",
+    language_code: "en",
+    module: "",
+    difficulty: "Beginner",
+    count: 5,
+  });
+  const [formats, setFormats] = useState(["Swipe_TrueFalse"]);
+  const [file, setFile] = useState(null);
+  const [stage, setStage] = useState("form"); // form | generating | review | importing
+  const [drafts, setDrafts] = useState(null);
+  const [error, setError] = useState("");
+  const fileRef = useRef(null);
+
+  const setParam = (k, v) => setParams((p) => ({ ...p, [k]: v }));
+  const toggleFormat = (f) =>
+    setFormats((prev) => (prev.includes(f) ? prev.filter((x) => x !== f) : [...prev, f]));
+
+  async function generate() {
+    if (!file) return setError("Choose a source PDF first.");
+    if (file.size > MAX_PDF_BYTES) return setError(`PDF too large (${Math.round(file.size / 1024)} KB). Keep under 4 MB.`);
+    setError("");
+    setStage("generating");
+    try {
+      const { cards } = await generateFromPdf(file, {
+        jurisdiction: params.jurisdiction,
+        language_code: params.language_code,
+        module: params.module,
+        difficulty: params.difficulty,
+        count: Number(params.count),
+        formats,
+      });
+      if (!cards?.length) throw new Error("The model returned no questions. Try another PDF or a higher count.");
+      setDrafts(cards);
+      setStage("review");
+    } catch (err) {
+      setError(err.message || "Generation failed.");
+      setStage("form");
+    }
+  }
+
+  async function importDrafts() {
+    setStage("importing");
+    setError("");
+    try {
+      const res = await importQuestions(drafts);
+      onImported(res.inserted ?? drafts.length);
+    } catch (err) {
+      setError(err.message || "Import failed.");
+      setStage("review");
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/40" onClick={onClose}>
+      <div className="flex h-full w-full max-w-lg flex-col bg-surface-light-card shadow-xl dark:bg-surface-dark-card" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-surface-light-border px-4 py-3 dark:border-surface-dark-border">
+          <h3 className="flex items-center gap-2 font-semibold"><FileText size={18} className="text-primary" /> Generate from PDF</h3>
+          <button type="button" onClick={onClose} aria-label="Close" className="rounded-lg p-1.5 hover:bg-gray-100 dark:hover:bg-surface-dark-bg"><X size={18} /></button>
+        </div>
+
+        <div className="flex-1 space-y-4 overflow-y-auto p-4">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Upload a source PDF — the LLM drafts questions grounded in it. You review them in the
+            list and publish when ready; nothing is published automatically.
+          </p>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Jurisdiction"><Select value={params.jurisdiction} onChange={(v) => setParam("jurisdiction", v)} options={JURISDICTION_CODES} /></Field>
+            <Field label="Language"><Select value={params.language_code} onChange={(v) => setParam("language_code", v)} options={LANGUAGE_CODES} /></Field>
+            <Field label="Module (optional)"><Select value={params.module} onChange={(v) => setParam("module", v)} options={["", ...MODULES]} /></Field>
+            <Field label="Difficulty"><Select value={params.difficulty} onChange={(v) => setParam("difficulty", v)} options={DIFFICULTIES} /></Field>
+            <Field label="How many">
+              <input type="number" min={1} max={20} className="input-field" value={params.count} onChange={(e) => setParam("count", e.target.value)} />
+            </Field>
+          </div>
+
+          <div>
+            <span className="mb-1.5 block text-sm text-gray-600 dark:text-gray-400">Formats</span>
+            <div className="flex flex-wrap gap-2">
+              {QUESTION_FORMATS.map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => toggleFormat(f)}
+                  className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                    formats.includes(f)
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-surface-light-border text-gray-600 dark:border-surface-dark-border dark:text-gray-300"
+                  }`}
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-surface-light-border px-4 py-3 text-sm transition hover:border-primary dark:border-surface-dark-border">
+            <input ref={fileRef} type="file" accept="application/pdf,.pdf" className="hidden" onChange={(e) => { setFile(e.target.files?.[0] || null); setError(""); }} />
+            <FileText size={16} className="text-primary" />
+            <span className="truncate">{file?.name || "Choose a PDF…"}</span>
+          </label>
+
+          {error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-verdict-dont_trust dark:bg-red-950/30">{error}</p> : null}
+
+          {stage === "review" && drafts?.length ? (
+            <div className="space-y-2">
+              <p className="text-sm font-medium">{drafts.length} draft{drafts.length === 1 ? "" : "s"} generated</p>
+              <div className="max-h-56 space-y-1.5 overflow-y-auto rounded-lg border border-surface-light-border p-2 dark:border-surface-dark-border">
+                {drafts.map((d, i) => (
+                  <div key={i} className="text-xs">
+                    <span className="text-gray-400">{d.question_format}</span> · {d.question_text}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="flex items-center justify-end gap-2 border-t border-surface-light-border px-4 py-3 dark:border-surface-dark-border">
+          <button type="button" onClick={onClose} className="rounded-lg border border-surface-light-border px-4 py-2 text-sm dark:border-surface-dark-border">Cancel</button>
+          {stage === "review" ? (
+            <button type="button" onClick={importDrafts} disabled={stage === "importing"} className="btn-primary">
+              {stage === "importing" ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />} Import {drafts.length} as Draft
+            </button>
+          ) : (
+            <button type="button" onClick={generate} disabled={stage === "generating" || formats.length === 0} className="btn-primary">
+              {stage === "generating" ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />} Generate
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

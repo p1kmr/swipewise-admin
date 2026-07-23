@@ -52,3 +52,21 @@ export async function aiEditQuestion(fields, instruction) {
     body: JSON.stringify({ fields, instruction }),
   });
 }
+
+function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(",")[1]);
+    reader.onerror = () => reject(new Error("Could not read the PDF file."));
+    reader.readAsDataURL(file);
+  });
+}
+
+// Generate draft questions from a source PDF via the LLM. Returns { cards, model, prompt_summary }.
+export async function generateFromPdf(file, params) {
+  const pdfBase64 = await readFileAsBase64(file);
+  return apiFetch("/api/generate-from-pdf", {
+    method: "POST",
+    body: JSON.stringify({ pdfBase64, mimeType: file.type || "application/pdf", params }),
+  });
+}
