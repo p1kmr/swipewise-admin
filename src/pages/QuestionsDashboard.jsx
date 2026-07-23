@@ -19,6 +19,7 @@ import {
   setQuestionStatus,
   updateQuestion,
   deleteQuestion,
+  clearAllQuestions,
   aiEditQuestion,
 } from "../services/contentService.js";
 import { downloadQuestionTemplate } from "../utils/excelTemplate.js";
@@ -225,6 +226,21 @@ export default function QuestionsDashboard() {
     rowAction(it.id, () => deleteQuestion(it.id), "Deleted.");
   };
 
+  async function handleClearAll() {
+    if (!window.confirm("Delete ALL questions and test data? This cannot be undone.")) return;
+    setBusyId("__all__");
+    setError("");
+    try {
+      const res = await clearAllQuestions();
+      flash(`Cleared all test data (${res.total} document${res.total === 1 ? "" : "s"}).`);
+      await refresh();
+    } catch (err) {
+      setError(err.message || "Clear failed.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   async function saveDrawer(payload) {
     if (editing.mode === "new") {
       await importQuestions([{ ...payload, question_id: null }]);
@@ -262,6 +278,16 @@ export default function QuestionsDashboard() {
           <button type="button" onClick={() => setEditing({ mode: "new" })} className="btn-primary">
             <Plus size={16} /> New
           </button>
+          {items.length > 0 ? (
+            <button
+              type="button"
+              onClick={handleClearAll}
+              disabled={busyId === "__all__"}
+              className="inline-flex items-center gap-2 rounded-lg border border-surface-light-border px-3 py-2 text-sm text-verdict-dont_trust transition hover:border-verdict-dont_trust disabled:opacity-50 dark:border-surface-dark-border"
+            >
+              {busyId === "__all__" ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />} Clear all
+            </button>
+          ) : null}
         </div>
       </div>
 

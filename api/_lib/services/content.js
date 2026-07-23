@@ -163,3 +163,15 @@ export async function deleteContent(id) {
   const result = await db.collection(COLLECTIONS.CONTENT).deleteOne({ _id: new ObjectId(id) });
   return { deleted: result.deletedCount };
 }
+
+// POC utility: clear ALL test data (every known collection). Collections + indexes are kept.
+export async function clearAllContent() {
+  const db = await getDb();
+  const cleared = {};
+  for (const name of Object.values(COLLECTIONS)) {
+    const r = await db.collection(name).deleteMany({});
+    if (r.deletedCount) cleared[name] = r.deletedCount;
+  }
+  const total = Object.values(cleared).reduce((a, b) => a + b, 0);
+  return { total, cleared };
+}

@@ -40,6 +40,11 @@ export async function deleteQuestion(id) {
   return apiFetch(`/api/content/${id}`, { method: "DELETE" });
 }
 
+// POC utility: clear ALL test data across every collection.
+export async function clearAllQuestions() {
+  return apiFetch("/api/content/clear-all", { method: "POST" });
+}
+
 // Ask the LLM to revise a question per an instruction. Returns revised editable fields.
 export async function aiEditQuestion(fields, instruction) {
   return apiFetch("/api/content/ai-edit", {
