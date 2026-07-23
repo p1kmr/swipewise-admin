@@ -8,6 +8,7 @@ import {
   setContentStatus,
   updateContent,
   deleteContent,
+  clearAllContent,
 } from "./services/content.js";
 import { reviseQuestion } from "./gemini.js";
 import { requireAuth } from "./auth.js";
@@ -83,6 +84,13 @@ export async function dispatchRoute(req, res, segments) {
 
       case "content/publish-batch":
         return publishBatch(req, res, publishContentBatch, "Batch publish");
+
+      case "content/clear-all": {
+        const user = requireAuth(req, res);
+        if (!user) return;
+        if (req.method !== "POST") return methodNotAllowed(res, ["POST"]);
+        return res.status(200).json(await clearAllContent());
+      }
 
       case "content/ai-edit": {
         const user = requireAuth(req, res);
