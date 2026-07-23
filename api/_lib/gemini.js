@@ -21,7 +21,6 @@ const questionSchema = {
     category: { type: SchemaType.STRING },
     question_format: { type: SchemaType.STRING, format: "enum", enum: QUESTION_FORMATS },
     question_text: { type: SchemaType.STRING },
-    scenario_context: { type: SchemaType.STRING },
     option_a: { type: SchemaType.STRING },
     option_b: { type: SchemaType.STRING },
     option_c: { type: SchemaType.STRING },
@@ -31,7 +30,6 @@ const questionSchema = {
     ai_explainer_context: { type: SchemaType.STRING },
     regulatory_reference: { type: SchemaType.STRING },
     difficulty: { type: SchemaType.STRING, format: "enum", enum: DIFFICULTIES },
-    tags: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
   },
   required: [
     "module",
@@ -50,7 +48,6 @@ const responseSchema = { type: SchemaType.ARRAY, items: questionSchema };
 export function buildPrompt(params) {
   const {
     jurisdiction = "the target jurisdiction",
-    regulator = "",
     language_code = "en",
     difficulty = "",
     module = "",
@@ -70,7 +67,6 @@ export function buildPrompt(params) {
     "Rules:",
     "- Ground every question in facts, rules, or examples found in the attached document. Do not invent regulations.",
     `- Jurisdiction: ${jurisdiction}. Write for that market's rules and context.`,
-    regulator ? `- Regulator: ${regulator}.` : "",
     `- Language: write all user-facing text using language code "${language_code}".`,
     module ? `- Learning module: ${module}.` : "",
     difficulty ? `- Difficulty for all questions: ${difficulty}.` : "- difficulty is Beginner, Intermediate, or Advanced.",
@@ -102,7 +98,6 @@ function normalizeAnswer(format, raw) {
 
 export function normalizeQuestions(questions, params) {
   const jurisdiction = String(params.jurisdiction || "").trim().toUpperCase();
-  const regulator = String(params.regulator || "").trim().toUpperCase();
   const language_code = params.language_code || "en";
 
   return (Array.isArray(questions) ? questions : []).map((q) => {
@@ -117,13 +112,11 @@ export function normalizeQuestions(questions, params) {
     return {
       question_id: null,
       jurisdiction,
-      regulator,
       language_code,
       module: q.module || "",
       category: q.category || "",
       question_format: format,
       question_text: q.question_text || "",
-      scenario_context: q.scenario_context || "",
       options: isMcq ? options : {},
       correct_answer: normalizeAnswer(format, q.correct_answer),
       explanation_feedback: q.explanation_feedback || "",
@@ -132,11 +125,9 @@ export function normalizeQuestions(questions, params) {
       difficulty: q.difficulty || "Beginner",
       points: 10,
       media_url: "",
-      tags: Array.isArray(q.tags) ? q.tags : [],
       status: "Draft",
       effective_date: null,
       expiry_date: null,
-      created_by: "",
       reviewer: "",
     };
   });
