@@ -1,31 +1,15 @@
 import { ObjectId } from "mongodb";
 import { signToken, verifyAdminCredentials, getBearerToken, verifyToken } from "./auth.js";
-import {
-  handleServerError,
-  methodNotAllowed,
-  sendError,
-} from "./http.js";
+import { handleServerError, methodNotAllowed, sendError } from "./http.js";
 import {
   importContent,
   listContent,
   publishContentBatch,
   setContentStatus,
+  updateContent,
+  deleteContent,
 } from "./services/content.js";
-import { importScripts, listScripts, publishScriptsBatch } from "./services/scripts.js";
-import { importQotd, listQotd, publishQotdBatch } from "./services/qotd.js";
-import {
-  listConfigs,
-  seedPrototypeConfigs,
-  setConfigActive,
-  upsertConfig,
-} from "./services/config.js";
-import { importJurisdictionData, listJurisdictionData } from "./services/jurisdictionData.js";
-import {
-  importJurisdictionRegistry,
-  listJurisdictionRegistry,
-} from "./services/jurisdictionRegistry.js";
-import { getCoverageReport, importTranslations, translateWithAI } from "./services/i18n.js";
-import { writeGenerationLineage } from "./services/lineage.js";
+import { reviseQuestion } from "./gemini.js";
 import { requireAuth } from "./auth.js";
 
 function routeKey(segments) {
@@ -100,6 +84,17 @@ export async function dispatchRoute(req, res, segments) {
       case "content/publish-batch":
         return publishBatch(req, res, publishContentBatch, "Batch publish");
 
+      case "content/ai-edit": {
+        const user = requireAuth(req, res);
+        if (!user) return;
+        if (req.method !== "POST") return methodNotAllowed(res, ["POST"]);
+        const { fields, instruction } = req.body || {};
+        if (!fields || !instruction) {
+          return sendError(res, 400, "fields and instruction are required.");
+        }
+        return res.status(200).json(await reviseQuestion(fields, instruction));
+      }
+
       case "content/status": {
         const user = requireAuth(req, res);
         if (!user) return;
@@ -112,137 +107,22 @@ export async function dispatchRoute(req, res, segments) {
         return res.status(200).json(await setContentStatus(ids, status));
       }
 
-      case "scripts": {
-        const user = requireAuth(req, res);
-        if (!user) return;
-        if (req.method === "GET") return res.status(200).json(await listScripts());
-        if (req.method === "POST") {
-          const { scripts } = req.body || {};
-          if (!Array.isArray(scripts) || scripts.length === 0) {
-            return sendError(res, 400, "scripts array is required.");
+      default: {
+        // content/:id  → PATCH (update) / DELETE (hard delete)
+        if (segments[0] === "content" && segments.length === 2) {
+          const user = requireAuth(req, res);
+          if (!user) return;
+          const id = segments[1];
+          if (req.method === "PATCH") {
+            return res.status(200).json(await updateContent(id, req.body || {}));
           }
-          return res.status(201).json(await importScripts(scripts));
-        }
-        return methodNotAllowed(res, ["GET", "POST"]);
-      }
-
-      case "scripts/publish-batch":
-        return publishBatch(req, res, publishScriptsBatch, "Scripts batch publish");
-
-      case "qotd": {
-        const user = requireAuth(req, res);
-        if (!user) return;
-        if (req.method === "GET") return res.status(200).json(await listQotd());
-        if (req.method === "POST") {
-          const { items } = req.body || {};
-          if (!Array.isArray(items) || items.length === 0) {
-            return sendError(res, 400, "items array is required.");
+          if (req.method === "DELETE") {
+            return res.status(200).json(await deleteContent(id));
           }
-          return res.status(201).json(await importQotd(items));
+          return methodNotAllowed(res, ["PATCH", "DELETE"]);
         }
-        return methodNotAllowed(res, ["GET", "POST"]);
-      }
-
-      case "qotd/publish-batch":
-        return publishBatch(req, res, publishQotdBatch, "QOTD batch publish");
-
-      case "config": {
-        const user = requireAuth(req, res);
-        if (!user) return;
-        if (req.method === "GET") return res.status(200).json(await listConfigs());
-        if (req.method === "POST") {
-          const body = req.body || {};
-          if (body.seed === "prototype") {
-            return res.status(201).json(await seedPrototypeConfigs());
-          }
-          return res.status(201).json(await upsertConfig(body));
-        }
-        return methodNotAllowed(res, ["GET", "POST"]);
-      }
-
-      case "config/set-active": {
-        const user = requireAuth(req, res);
-        if (!user) return;
-        if (req.method !== "POST") return methodNotAllowed(res, ["POST"]);
-        const { jurisdiction, active } = req.body || {};
-        if (!jurisdiction) return sendError(res, 400, "jurisdiction is required.");
-        const ok = await setConfigActive(jurisdiction, active);
-        if (!ok) return sendError(res, 404, "Jurisdiction config not found.");
-        return res.status(200).json({
-          jurisdiction: String(jurisdiction).trim().toUpperCase(),
-          active: Boolean(active),
-        });
-      }
-
-      case "jurisdiction-data": {
-        const user = requireAuth(req, res);
-        if (!user) return;
-        if (req.method === "GET") {
-          return res.status(200).json(await listJurisdictionData(req.query?.jurisdiction));
-        }
-        if (req.method === "POST") {
-          const { items } = req.body || {};
-          if (!Array.isArray(items) || items.length === 0) {
-            return sendError(res, 400, "items array is required.");
-          }
-          return res.status(201).json(await importJurisdictionData(items));
-        }
-        return methodNotAllowed(res, ["GET", "POST"]);
-      }
-
-      case "jurisdiction-registry": {
-        const user = requireAuth(req, res);
-        if (!user) return;
-        if (req.method === "GET") {
-          return res.status(200).json(await listJurisdictionRegistry(req.query?.jurisdiction));
-        }
-        if (req.method === "POST") {
-          const { items } = req.body || {};
-          if (!Array.isArray(items) || items.length === 0) {
-            return sendError(res, 400, "items array is required.");
-          }
-          return res.status(201).json(await importJurisdictionRegistry(items));
-        }
-        return methodNotAllowed(res, ["GET", "POST"]);
-      }
-
-      case "i18n/import": {
-        const user = requireAuth(req, res);
-        if (!user) return;
-        if (req.method === "GET") {
-          return res.status(200).json(await getCoverageReport(req.query?.jurisdiction));
-        }
-        if (req.method === "POST") {
-          const { rows } = req.body || {};
-          if (!Array.isArray(rows) || rows.length === 0) {
-            return sendError(res, 400, "rows array is required.");
-          }
-          return res.status(201).json(await importTranslations(rows));
-        }
-        return methodNotAllowed(res, ["GET", "POST"]);
-      }
-
-      case "i18n/translate": {
-        const user = requireAuth(req, res);
-        if (!user) return;
-        if (req.method !== "POST") return methodNotAllowed(res, ["POST"]);
-        const { content_type, ids, target_language } = req.body || {};
-        if (!Array.isArray(ids) || ids.length === 0) {
-          return sendError(res, 400, "ids array is required.");
-        }
-        if (!target_language) return sendError(res, 400, "target_language is required.");
-        return res.status(200).json(await translateWithAI({ content_type, ids, target_language }));
-      }
-
-      case "generation/lineage": {
-        const user = requireAuth(req, res);
-        if (!user) return;
-        if (req.method !== "POST") return methodNotAllowed(res, ["POST"]);
-        return res.status(201).json(await writeGenerationLineage(user.email, req.body || {}));
-      }
-
-      default:
         return sendError(res, 404, "Not found.");
+      }
     }
   } catch (err) {
     if (err.message?.includes("required") || err.message?.includes("invalid")) {

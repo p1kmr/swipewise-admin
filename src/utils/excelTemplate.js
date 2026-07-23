@@ -3,7 +3,6 @@ import {
   QUESTION_COLUMNS,
   QUESTION_REQUIRED_COLUMNS,
   JURISDICTION_CODES,
-  REGULATORS,
   LANGUAGE_CODES,
   MODULES,
   CATEGORIES,
@@ -12,22 +11,21 @@ import {
   STATUSES,
 } from "../constants/enums.js";
 
-// README lines shown on the first sheet (mirrors the v3 template guidance).
+// README lines shown on the first sheet.
 const README_ROWS = [
-  ["SwipeWise – Question Bank Upload Template"],
+  ["SwipeWise – Question Master Upload Template"],
   ["Admin Module | Bulk Question Import Specification"],
   [],
   ["1. Purpose"],
-  ["Fill the 'Questions' sheet only — one row per question/answer card. On upload, the backend validates each row and inserts/updates it in MongoDB."],
+  ["Fill the 'Questions' sheet only — one row per question. On upload, the backend validates each row and inserts it in MongoDB as a Draft."],
   [],
   ["2. How to fill"],
-  ["• Do not edit the column headers. Leave Question_ID blank for new questions (auto-generated, e.g. SW-IN-000123); fill it only to update an existing question (re-upload = upsert)."],
-  ["• Yellow/Mandatory columns are required. The dropdown columns (Jurisdiction_Code, Regulator, Language_Code, Module, Question_Format, Difficulty, Status) must use a value from the Lookup_Values sheet."],
+  ["• Do not edit the column headers."],
+  ["• Mandatory columns are required. The dropdown columns (Jurisdiction_Code, Language_Code, Module, Question_Format, Difficulty, Status) must use a value from the Lookup_Values sheet."],
   ["• Swipe_TrueFalse: set Correct_Answer to TRUE or FALSE and leave Option_A–D blank. TRUE = legitimate/correct, FALSE = red flag/fraud."],
   ["• MCQ_Single / MCQ_Multi: fill Option_A–D and put the correct letter(s) in Correct_Answer (comma-separated for MCQ_Multi, e.g. 'A,C')."],
-  ["• Scenario_Card: fill Scenario_Context; Correct_Answer is TRUE/FALSE."],
   ["• Explanation_Feedback is the short teaching line shown to every user. AI_Explainer_Context is longer grounding text used only by the in-app AI assistant."],
-  ["• Nothing goes live on import — every row is saved as Draft. Publish it in the admin Review screen to set it Active."],
+  ["• Nothing goes live on import — every row is saved as Draft. Publish it from the dashboard to set it Active."],
   [],
   ["3. Delete the sample rows on the Questions sheet before uploading a production batch."],
 ];
@@ -102,7 +100,6 @@ const SAMPLE_ROWS = [
 function buildLookupSheet() {
   const columns = {
     Jurisdiction_Code: JURISDICTION_CODES,
-    Regulator: REGULATORS,
     Language_Code: LANGUAGE_CODES,
     Module: MODULES,
     Category: CATEGORIES,

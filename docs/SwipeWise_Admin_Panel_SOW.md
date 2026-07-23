@@ -1,5 +1,13 @@
 # SwipeWise — Admin Panel Scope of Work
 
+> **⚠️ Superseded (v4, single dashboard).** Per owner feedback the admin is now a single
+> **Question Management dashboard** built around the 21-column question master Excel. The
+> phased breakdown and current scope live in **[`docs/PHASES.md`](./PHASES.md)**. The
+> multi-module scope below (scripts, QOTD, jurisdictions, translations) is historical.
+
+---
+
+
 **Use AI Responsibly to Strengthen Investor Education**
 Applicant: KAARYA FACILITIES SERVICES LTD. | Project: SwipeWise | Component: **Admin / Back-Office Panel**
 Document version: **v3.0 — Vercel + MongoDB Atlas POC (July 2026)**

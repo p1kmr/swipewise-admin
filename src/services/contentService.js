@@ -26,3 +26,24 @@ export async function setQuestionStatus(ids, status) {
     body: JSON.stringify({ ids, status }),
   });
 }
+
+// Update a single question's editable fields (PATCH). Returns the updated doc.
+export async function updateQuestion(id, fields) {
+  return apiFetch(`/api/content/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(fields),
+  });
+}
+
+// Permanently delete a question.
+export async function deleteQuestion(id) {
+  return apiFetch(`/api/content/${id}`, { method: "DELETE" });
+}
+
+// Ask the LLM to revise a question per an instruction. Returns revised editable fields.
+export async function aiEditQuestion(fields, instruction) {
+  return apiFetch("/api/content/ai-edit", {
+    method: "POST",
+    body: JSON.stringify({ fields, instruction }),
+  });
+}

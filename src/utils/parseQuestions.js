@@ -1,7 +1,6 @@
 import * as XLSX from "xlsx";
 import {
   JURISDICTION_CODES,
-  REGULATORS,
   LANGUAGE_CODES,
   MODULES,
   QUESTION_FORMATS,
@@ -10,12 +9,10 @@ import {
   QUESTION_REQUIRED_COLUMNS,
   MCQ_OPTION_KEYS,
 } from "../constants/enums.js";
-import { assertExpectedTemplate } from "./detectTemplate.js";
 
-// Enum columns that must match a Lookup_Values entry (README C17). Category is free text.
+// Enum columns that must match a Lookup_Values entry. Category is free text.
 const ENUM_COLUMNS = {
   Jurisdiction_Code: JURISDICTION_CODES,
-  Regulator: REGULATORS,
   Language_Code: LANGUAGE_CODES,
   Module: MODULES,
   Question_Format: QUESTION_FORMATS,
@@ -28,14 +25,6 @@ const LEGEND_VALUES = new Set(["mandatory", "optional"]);
 function clean(value) {
   if (value == null) return "";
   return typeof value === "string" ? value.trim() : value;
-}
-
-function splitTags(value) {
-  if (!value) return [];
-  return String(value)
-    .split(",")
-    .map((t) => t.trim())
-    .filter(Boolean);
 }
 
 // A row is the "Mandatory/Optional" legend row if every non-empty cell is one of those words.
@@ -104,8 +93,7 @@ function resolveAnswer(format, correctRaw, options) {
 export async function parseQuestionsFile(file) {
   const buffer = await file.arrayBuffer();
   const workbook = XLSX.read(buffer, { type: "array" });
-  assertExpectedTemplate(workbook, "questions");
-  // The template has README / Questions / Lookup_Values — parse the Questions sheet.
+  // The master has README / Questions / Lookup_Values — parse the Questions sheet.
   const sheetName = workbook.SheetNames.includes("Questions")
     ? "Questions"
     : workbook.SheetNames[0];
@@ -135,9 +123,10 @@ export async function parseQuestionsFile(file) {
     });
 
     Object.entries(ENUM_COLUMNS).forEach(([col, allowed]) => {
-      const value = col === "Jurisdiction_Code" || col === "Regulator"
-        ? String(row[col] || "").trim().toUpperCase()
-        : String(row[col] || "").trim();
+      const value =
+        col === "Jurisdiction_Code"
+          ? String(row[col] || "").trim().toUpperCase()
+          : String(row[col] || "").trim();
       if (value && !allowed.includes(value)) {
         errors.push(`invalid ${col} "${row[col]}"`);
       }
@@ -169,15 +158,13 @@ export async function parseQuestionsFile(file) {
     }
 
     valid.push({
-      question_id: String(row.Question_ID || "").trim() || null,
+      question_id: null,
       jurisdiction: String(row.Jurisdiction_Code).trim().toUpperCase(),
-      regulator: String(row.Regulator).trim().toUpperCase(),
       language_code: String(row.Language_Code).trim(),
       module: String(row.Module).trim(),
       category: String(row.Category).trim(),
       question_format: format,
       question_text: String(row.Question_Text).trim(),
-      scenario_context: String(row.Scenario_Context || "").trim(),
       options: answer.options,
       correct_answer: answer.value,
       explanation_feedback: String(row.Explanation_Feedback).trim(),
@@ -186,11 +173,9 @@ export async function parseQuestionsFile(file) {
       difficulty: String(row.Difficulty).trim(),
       points,
       media_url: String(row.Media_URL || "").trim(),
-      tags: splitTags(row.Tags),
       status: String(row.Status).trim(),
       effective_date: String(row.Effective_Date || "").trim() || null,
       expiry_date: String(row.Expiry_Date || "").trim() || null,
-      created_by: String(row.Created_By || "").trim(),
       reviewer: String(row.Reviewer || "").trim(),
     });
   });

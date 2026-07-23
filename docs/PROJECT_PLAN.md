@@ -1,5 +1,14 @@
 # SwipeWise Admin — Project Plan
 
+> **⚠️ Superseded (v4, single dashboard).** The admin has been rebuilt into **one Question
+> Management dashboard** (upload the master Excel → search / edit / update / delete / publish /
+> "Modify with AI"). Scripts, QOTD, Jurisdictions (config/data/registry/translations), and the
+> separate Generate/Review/Overview screens have been **removed**. The current build order and
+> scope live in **[`docs/PHASES.md`](./PHASES.md)**. The multi-section content below is historical.
+
+---
+
+
 **Platform:** **Vercel** (React SPA + serverless `/api`) + **MongoDB Atlas** — **no Firebase, no Blaze**
 
 Document version: v3.0 — Vercel + MongoDB POC stack; mobile-first PWA (July 2026)
